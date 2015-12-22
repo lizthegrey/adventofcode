@@ -23,10 +23,10 @@ func main() {
 		repeat := make(map[Pair]int)
 		doubledouble := false
 		alternate := false
-		for i := 0; i < len(line) - 1; i++ {
+		for i := 0; i < len(line)-1; i++ {
 			cur := rune(line[i])
 			pair := Pair{last, cur}
-			if repeat[pair] != i - 1 && repeat[pair] != 0 {
+			if repeat[pair] != i-1 && repeat[pair] != 0 {
 				doubledouble = true
 			}
 			if repeat[pair] == 0 {
@@ -38,7 +38,7 @@ func main() {
 			penult = last
 			last = cur
 		}
-		fmt.Printf("%s: %t, %t\n", line[:len(line) - 1], doubledouble, alternate)
+		fmt.Printf("%s: %t, %t\n", line[:len(line)-1], doubledouble, alternate)
 		if doubledouble && alternate {
 			nice += 1
 		}

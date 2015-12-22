@@ -7,7 +7,7 @@ import (
 )
 
 func main() {
-	substitutions := map[string][]string {
+	substitutions := map[string][]string{
 		"Al": {"ThF", "ThRnFAr"},
 		"B":  {"BCa", "TiB", "TiRnFAr"},
 		"Ca": {"CaCa", "PB", "PRnFAr", "SiRnFYFAr", "SiRnMgAr", "SiTh"},
@@ -53,12 +53,12 @@ func main() {
 		}
 	}
 
-	known := map[int][]string {
+	known := map[int][]string{
 		len(medicine): {medicine},
 	}
 	keys := []int{len(medicine)}
 	iterationCount := 0
-	outer:
+outer:
 	for {
 		if k, ok := known[len(starter)]; ok {
 			for i := range k {
@@ -75,7 +75,7 @@ func main() {
 				newKeys = reverseIterate(known[keys[m]][v], substitutions, newKnown, newKeys)
 			}
 		}
-		known = map[int][]string {
+		known = map[int][]string{
 			newKeys[0]: newKnown[newKeys[0]],
 		}
 		keys = newKeys
@@ -91,7 +91,7 @@ func iterate(input string, substitutions map[string][]string, outputs map[string
 		matches := r.FindAllStringIndex(input, -1)
 		for m := range matches {
 			for i := range v {
-				out := make([]byte, len(input) - len(k) + len(v[i]))
+				out := make([]byte, len(input)-len(k)+len(v[i]))
 				copy(out[0:matches[m][0]], input[0:matches[m][0]])
 				copy(out[matches[m][0]:matches[m][0]+len(v[i])], v[i][:])
 				copy(out[matches[m][0]+len(v[i]):len(out)], input[matches[m][1]:len(input)])
@@ -107,7 +107,7 @@ func reverseIterate(input string, substitutions map[string][]string, outputs map
 			r := regexp.MustCompile(v[i])
 			matches := r.FindAllStringIndex(input, -1)
 			for m := range matches {
-				out := make([]byte, len(input) + len(k) - len(v[i]))
+				out := make([]byte, len(input)+len(k)-len(v[i]))
 				copy(out[0:matches[m][0]], input[0:matches[m][0]])
 				copy(out[matches[m][0]:matches[m][0]+len(k)], k[:])
 				copy(out[matches[m][0]+len(k):len(out)], input[matches[m][1]:len(input)])

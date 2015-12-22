@@ -31,7 +31,7 @@ func main() {
 			for x := x1; x <= x2; x++ {
 				for y := y1; y <= y2; y++ {
 					if on[Coord{x, y}] >= 1 {
-						on[Coord{x,y}]--
+						on[Coord{x, y}]--
 					}
 				}
 			}
@@ -50,7 +50,7 @@ func main() {
 		}
 	}
 	sum := 0
-	for key := range(on) {
+	for key := range on {
 		sum += on[key]
 	}
 	fmt.Println(sum)

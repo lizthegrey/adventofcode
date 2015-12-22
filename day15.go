@@ -16,12 +16,11 @@ func main() {
 	ingredients["Candy"] = Ingredient{-1, 0, 4, 0, 1}
 	ingredients["Chocolate"] = Ingredient{0, 0, -2, 2, 8}
 
-
 	mostPoints := 0
 	maxVolume := 100
 
 	count := 1
-	for i := 0; i < len(ingredients) - 1; i++ {
+	for i := 0; i < len(ingredients)-1; i++ {
 		count *= (maxVolume + 1)
 	}
 
@@ -30,7 +29,7 @@ func main() {
 		r := make(Recipe)
 		total := 0
 		for name := range ingredients {
-			if len(r) == len(ingredients) - 1 {
+			if len(r) == len(ingredients)-1 {
 				r[name] = maxVolume - total
 			} else {
 				quantity := encoded % (maxVolume + 1)

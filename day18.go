@@ -21,7 +21,7 @@ func main() {
 		if err != nil {
 			break
 		}
-		for x := range line[:len(line) - 1] {
+		for x := range line[:len(line)-1] {
 			if line[x] == '#' {
 				on[Coord{x, y}] = 1
 			}
@@ -46,11 +46,11 @@ func step(on Grid) Grid {
 
 	for x := 0; x < 100; x++ {
 		for y := 0; y < 100; y++ {
-			neighborsOn := on[Coord{x-1, y-1}] + on[Coord{x-1, y}] + on[Coord{x-1, y+1}] + on[Coord{x, y-1}] + on[Coord{x, y+1}] + on[Coord{x+1, y-1}] + on[Coord{x+1, y}] + on[Coord{x+1, y+1}]
+			neighborsOn := on[Coord{x - 1, y - 1}] + on[Coord{x - 1, y}] + on[Coord{x - 1, y + 1}] + on[Coord{x, y - 1}] + on[Coord{x, y + 1}] + on[Coord{x + 1, y - 1}] + on[Coord{x + 1, y}] + on[Coord{x + 1, y + 1}]
 
 			if on[Coord{x, y}] == 1 && (neighborsOn == 2 || neighborsOn == 3) {
 				next[Coord{x, y}] = 1
-			} else  if on[Coord{x, y}] == 0 && neighborsOn == 3 {
+			} else if on[Coord{x, y}] == 0 && neighborsOn == 3 {
 				next[Coord{x, y}] = 1
 			}
 		}

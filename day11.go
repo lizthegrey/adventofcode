@@ -6,18 +6,18 @@ import (
 
 func main() {
 	input := []byte("hxbxwxba")
-	for ; !valid(input) ; inc(input) {
+	for ; !valid(input); inc(input) {
 	}
 	fmt.Println(string(input))
-	for inc(input); !valid(input) ; inc(input) {
+	for inc(input); !valid(input); inc(input) {
 	}
 	fmt.Println(string(input))
 }
 
 func valid(input []byte) bool {
 	straight := false
-	for i := 0; i < len(input) - 2; i++ {
-		if input[i] + 1 == input[i+1] && input[i+1] + 1 == input[i+2] {
+	for i := 0; i < len(input)-2; i++ {
+		if input[i]+1 == input[i+1] && input[i+1]+1 == input[i+2] {
 			straight = true
 		}
 	}
@@ -31,7 +31,7 @@ func valid(input []byte) bool {
 	}
 
 	pairs := make(map[byte]bool)
-	for i := 0; i < len(input) - 1; i++ {
+	for i := 0; i < len(input)-1; i++ {
 		if input[i] == input[i+1] {
 			pairs[input[i]] = true
 			i++

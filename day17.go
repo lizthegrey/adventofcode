@@ -15,13 +15,13 @@ func main() {
 	contCounts := make(map[int]int)
 
 	valid := 0
-	comb:
+comb:
 	for i := 0; i < combinations; i++ {
 		mask := i
 		total := 0
 		containers := 0
 		for v := range volumes {
-			if mask % 2 == 1 {
+			if mask%2 == 1 {
 				total += volumes[v]
 				containers++
 			}

@@ -9,14 +9,14 @@ import (
 func main() {
 	reader := bufio.NewReader(os.Stdin)
 	nice := 0
-	vowels := map[rune]bool {
+	vowels := map[rune]bool{
 		'a': true,
 		'e': true,
 		'i': true,
 		'o': true,
 		'u': true,
 	}
-	blacklist := map[rune]rune {
+	blacklist := map[rune]rune{
 		'a': 'b',
 		'c': 'd',
 		'p': 'q',
@@ -31,7 +31,7 @@ func main() {
 		vowelCount := 0
 		double := false
 		blacklisted := false
-		for i := 0; i < len(line) - 1; i++ {
+		for i := 0; i < len(line)-1; i++ {
 			cur := rune(line[i])
 			if last == cur {
 				double = true
@@ -45,7 +45,7 @@ func main() {
 			}
 			last = cur
 		}
-		fmt.Printf("%s: %d, %t, %t\n", line[:len(line) - 1], vowelCount, double, blacklisted)
+		fmt.Printf("%s: %d, %t, %t\n", line[:len(line)-1], vowelCount, double, blacklisted)
 		if vowelCount >= 3 && double && !blacklisted {
 			nice += 1
 		}

@@ -16,9 +16,9 @@ func main() {
 		if err != nil {
 			break
 		}
-		for i := 0; i < len(line) - 1; i++ {
+		for i := 0; i < len(line)-1; i++ {
 			input++
-			if (i == 0 || i == len(line) - 2) {
+			if i == 0 || i == len(line)-2 {
 				if line[i] != '"' {
 					fmt.Println("Malformed input line")
 					return
@@ -43,5 +43,5 @@ func main() {
 
 	fmt.Println(input)
 	fmt.Println(memory)
-	fmt.Println(input-memory)
+	fmt.Println(input - memory)
 }

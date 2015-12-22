@@ -17,8 +17,8 @@ func main() {
 	var visited map[Coord]int = make(map[Coord]int)
 	visited[Coord{0, 0}] = 1
 	isRobot := false
-	for i := range(line) {
-		if i == len(line) - 1 {
+	for i := range line {
+		if i == len(line)-1 {
 			break
 		}
 		var x, y int64

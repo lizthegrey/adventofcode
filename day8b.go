@@ -18,7 +18,7 @@ func main() {
 		}
 		input += len(line) - 1
 		output += len(line) - 1 + 2
-		for i := 0; i < len(line) - 1; i++ {
+		for i := 0; i < len(line)-1; i++ {
 			if line[i] == '\\' {
 				output++
 			} else if line[i] == '"' {
@@ -29,5 +29,5 @@ func main() {
 
 	fmt.Println(input)
 	fmt.Println(output)
-	fmt.Println(output-input)
+	fmt.Println(output - input)
 }

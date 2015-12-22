@@ -9,24 +9,24 @@ import (
 )
 
 func main() {
-	toMatch := map[string]int {
-		"children": 3,
-		"cats": 7,
-		"samoyeds": 2,
+	toMatch := map[string]int{
+		"children":    3,
+		"cats":        7,
+		"samoyeds":    2,
 		"pomeranians": 3,
-		"akitas": 0,
-		"vizslas": 0,
-		"goldfish": 5,
-		"trees": 3,
-		"cars": 2,
-		"perfumes": 1,
+		"akitas":      0,
+		"vizslas":     0,
+		"goldfish":    5,
+		"trees":       3,
+		"cars":        2,
+		"perfumes":    1,
 	}
 
 	reader := bufio.NewReader(os.Stdin)
 	r := regexp.MustCompile("Sue ([0-9]+): ((?:[a-z]+: [0-9]+(?:, )?)+)")
 	r2 := regexp.MustCompile("([a-z]+): ([0-9]+)(?:, )?")
 
-	readLoop:
+readLoop:
 	for {
 		line, err := reader.ReadString('\n')
 		if err != nil {

@@ -12,41 +12,40 @@ var verbose = false
 
 type Entity struct {
 	Hitpoints, Damage, Defense, Mana int
-	Effects []Effect
+	Effects                          []Effect
 }
-
 
 var boss = Entity{
 	Hitpoints: 71,
-	Damage: 10,
-	Defense: 0,
-	Mana: 0,
+	Damage:    10,
+	Defense:   0,
+	Mana:      0,
 }
 
 var player = Entity{
 	Hitpoints: 50,
-	Damage: 0,
-	Defense: 0,
-	Mana: 500,
+	Damage:    0,
+	Defense:   0,
+	Mana:      500,
 }
 
 type Effect struct {
-	Name string
+	Name      string
 	TurnsLeft int
-	Mana int
-	Armor int
-	Damage int
+	Mana      int
+	Armor     int
+	Damage    int
 }
 
 type Spell struct {
-	Cost int
-	Self Effect
+	Cost   int
+	Self   Effect
 	Target Effect
 }
 
 type State struct {
 	Player, Boss Entity
-	ManaSpent int
+	ManaSpent    int
 }
 
 func (ent *Entity) ApplyEffects() {
@@ -107,7 +106,7 @@ func (e *Entity) AttackOnce(target *Entity) bool {
 func FightIncremental(state State, spell Spell) (bool, bool, bool, State) {
 	if hard {
 		state.Player.Hitpoints--
-		if (state.Player.Hitpoints <= 0) {
+		if state.Player.Hitpoints <= 0 {
 			return false, false, true, state
 		}
 	}
@@ -135,7 +134,7 @@ func FightIncremental(state State, spell Spell) (bool, bool, bool, State) {
 	return false, true, true, state
 }
 
-var allSpells = []Spell {
+var allSpells = []Spell{
 	{53, Effect{}, Effect{"MM", 1, 0, 0, -4}},
 	{73, Effect{"Drain", 1, 0, 0, 2}, Effect{"Drain", 1, 0, 0, -2}},
 	{113, Effect{"Shield", 6, 0, 7, 0}, Effect{}},
@@ -167,7 +166,7 @@ func TestSpells(prev []Spell, os State, depth int) int {
 		}
 
 		compute := func(previous []Spell, oldState State, maxDepth, spell int) {
-			spellList := make([]Spell, len(previous) + 1)
+			spellList := make([]Spell, len(previous)+1)
 			copy(spellList[:len(previous)], previous)
 			spellList[len(previous)] = allSpells[spell]
 
@@ -204,7 +203,7 @@ func TestSpells(prev []Spell, os State, depth int) int {
 			}
 
 			if maxDepth >= 1 && proceed {
-				values <- TestSpells(spellList, state, maxDepth - 1)
+				values <- TestSpells(spellList, state, maxDepth-1)
 			} else {
 				values <- math.MaxInt32
 			}

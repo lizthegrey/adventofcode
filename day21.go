@@ -21,8 +21,8 @@ type Ring struct {
 }
 
 type EquipmentSet struct {
-	Wielded Weapon
-	Worn Armor
+	Wielded             Weapon
+	Worn                Armor
 	LeftRing, RightRing Ring
 }
 
@@ -45,8 +45,8 @@ func (es EquipmentSet) TotalCost() int {
 func (es EquipmentSet) GenerateEntity(startHealth int) Entity {
 	return Entity{
 		Hitpoints: startHealth,
-		Damage: es.Wielded.Damage + es.LeftRing.Damage + es.RightRing.Damage,
-		Defense: es.Worn.Defense + es.LeftRing.Defense + es.RightRing.Defense,
+		Damage:    es.Wielded.Damage + es.LeftRing.Damage + es.RightRing.Damage,
+		Defense:   es.Worn.Defense + es.LeftRing.Defense + es.RightRing.Defense,
 	}
 }
 
@@ -62,7 +62,7 @@ func Fight(player, boss Entity) bool {
 }
 
 func main() {
-	allArmor := []Armor {
+	allArmor := []Armor{
 		{0, 0},
 		{13, 1},
 		{31, 2},
@@ -70,14 +70,14 @@ func main() {
 		{75, 4},
 		{102, 5},
 	}
-	allWeapons := []Weapon {
+	allWeapons := []Weapon{
 		{8, 4},
 		{10, 5},
 		{25, 6},
 		{40, 7},
 		{74, 8},
 	}
-	allRings := []Ring {
+	allRings := []Ring{
 		{0, 0, 0},
 		{0, 0, 0},
 		{25, 1, 0},
@@ -88,10 +88,10 @@ func main() {
 		{80, 0, 3},
 	}
 
-	boss := Entity {
+	boss := Entity{
 		Hitpoints: 109,
-		Damage: 8,
-		Defense: 2,
+		Damage:    8,
+		Defense:   2,
 	}
 
 	cheapest := 9999999
@@ -105,10 +105,10 @@ func main() {
 						// Don't allow buying the same ring twice; treat rings as symmetric.
 						continue
 					}
-					es := EquipmentSet {
-						Wielded: allWeapons[w],
-						Worn: allArmor[a],
-						LeftRing: allRings[lr],
+					es := EquipmentSet{
+						Wielded:   allWeapons[w],
+						Worn:      allArmor[a],
+						LeftRing:  allRings[lr],
 						RightRing: allRings[rr],
 					}
 					cost := es.TotalCost()

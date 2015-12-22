@@ -9,11 +9,11 @@ import (
 )
 
 type Reindeer struct {
-	Speed int
+	Speed     int
 	Endurance int
-	Rest int
-	Distance int
-	Points int
+	Rest      int
+	Distance  int
+	Points    int
 }
 
 func main() {
@@ -41,7 +41,7 @@ func main() {
 
 		for i := range reindeer {
 			r := reindeer[i]
-			if (t-1) % (r.Endurance + r.Rest) < r.Endurance {
+			if (t-1)%(r.Endurance+r.Rest) < r.Endurance {
 				r.Distance += r.Speed
 			}
 			if furthest < r.Distance {
