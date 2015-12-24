@@ -17,19 +17,12 @@ func main() {
 	}
 	max := sum / numBuckets
 
-	foundMatch := false
-	bestProduct := uint64(math.MaxUint64)
-	for n := 1; !foundMatch; n++ {
-		found, product := recursiveTest(packages, max, n)
-		if found {
-			foundMatch = true
-			if product < bestProduct {
-				bestProduct = product
-			}
+	for n := 1; ; n++ {
+		if found, product := recursiveTest(packages, max, n); found {
+			fmt.Println(product)
+			return
 		}
 	}
-
-	fmt.Println(bestProduct)
 }
 
 func recursiveTest(packages []int, maxSum, numPackages int) (bool, uint64) {
@@ -42,8 +35,7 @@ func recursiveTest(packages []int, maxSum, numPackages int) (bool, uint64) {
 		} else if max == 0 {
 			return true, uint64(packages[i])
 		} else if numPackages > 1 && i+i != len(packages) {
-			subFound, subProduct := recursiveTest(packages[i+1:], max, numPackages-1)
-			if subFound {
+			if subFound, subProduct := recursiveTest(packages[i+1:], max, numPackages-1); subFound {
 				found = true
 				product := subProduct * uint64(packages[i])
 				if product < bestProduct {
