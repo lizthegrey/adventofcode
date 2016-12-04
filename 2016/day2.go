@@ -60,14 +60,14 @@ DRRRLURUDUDUULDLLURLUUDDRRRDUDLURLLDRRLLDDURULUDUURURULLRLDLLUURDLLDLLDLDLRUDLLL
 			case 'L':
 				proposedLoc.X -= 1
 			default:
-				fmt.Printf("Invalid direction: %q", inst)
+				fmt.Printf("Invalid direction: %c", inst)
 				return
 			}
 			if keypadB[proposedLoc] != rune(0) {
 				loc = proposedLoc
 			}
 		}
-		fmt.Printf("%q", keypadB[loc])
+		fmt.Printf("%c", keypadB[loc])
 	}
 	fmt.Println()
 }
