@@ -6,17 +6,48 @@ import (
 	"sync"
 )
 
-const NumFloors int = 4
+const NumFloors int8 = 4
 
-type Item struct {
+type FullItem struct {
 	Isotope   int8
 	Generator bool
-	Floor     int
+	Floor     int8
+}
+
+type Item int8
+
+func (i Item) Isotope() int8 {
+	return int8(i) % 8
+}
+
+func (i Item) Generator() bool {
+	return ((int8(i) >> 3) % 2) == 1
+}
+
+func (i Item) Floor() int8 {
+	return (int8(i) >> 4) % 4
+}
+func (i Item) UpdateFloor(floor int8) Item {
+	ret := int8(i)
+	ret &= 0xf
+	ret |= floor << 4
+
+	return Item(ret)
+}
+
+func (f FullItem) Serialize() Item {
+	var ret int8
+	ret |= f.Floor << 4
+	if f.Generator {
+		ret |= 1 << 3
+	}
+	ret |= f.Isotope % 8
+	return Item(ret)
 }
 
 type Board struct {
 	Items         [14]Item
-	ElevatorFloor int
+	ElevatorFloor int8
 }
 
 type BoardScore struct {
@@ -34,10 +65,10 @@ func (a BoardList) Less(i, j int) bool {
 
 func (b *Board) Win() bool {
 	for _, item := range b.Items {
-		if item.Isotope == 0 {
+		if item.Isotope() == 0 {
 			continue
 		}
-		if item.Floor != NumFloors-1 {
+		if item.Floor() != NumFloors-1 {
 			return false
 		}
 	}
@@ -46,25 +77,25 @@ func (b *Board) Win() bool {
 
 func (b *Board) Valid() int {
 	score := 0
-	for f := 0; f < NumFloors; f++ {
+	for f := int8(0); f < NumFloors; f++ {
 		gens := make(map[int8]bool)
 		for _, item := range b.Items {
-			if item.Floor != f || item.Isotope == 0 {
+			if item.Floor() != f || item.Isotope() == 0 {
 				continue
 			}
-			if item.Generator {
-				gens[item.Isotope] = true
+			if item.Generator() {
+				gens[item.Isotope()] = true
 				if f == NumFloors-1 {
 					score += 20
 				}
 			}
 		}
 		for _, item := range b.Items {
-			if item.Floor != f || item.Isotope == 0 {
+			if item.Floor() != f || item.Isotope() == 0 {
 				continue
 			}
-			if !item.Generator {
-				if gens[item.Isotope] {
+			if !item.Generator() {
+				if gens[item.Isotope()] {
 					// Shielded
 					score += 10
 					continue
@@ -79,16 +110,14 @@ func (b *Board) Valid() int {
 	return score
 }
 
-func (b *Board) MakeCopy(newFloor int, move1, move2 int) Board {
+func (b *Board) MakeCopy(newFloor int8, move1, move2 int) Board {
 	nb := Board{
 		ElevatorFloor: newFloor,
 		Items:         [14]Item{},
 	}
 	for i := range b.Items {
 		if i == move1 || i == move2 {
-			newItem := b.Items[i]
-			newItem.Floor = newFloor
-			nb.Items[i] = newItem
+			nb.Items[i] = b.Items[i].UpdateFloor(newFloor)
 		} else {
 			nb.Items[i] = b.Items[i]
 		}
@@ -98,13 +127,12 @@ func (b *Board) MakeCopy(newFloor int, move1, move2 int) Board {
 
 func (b *Board) MakeMoves() BoardList {
 	ret := make(BoardList, 0)
-	// fmt.Println(b)
-	for nf := 0; nf < NumFloors; nf++ {
+	for nf := int8(0); nf < NumFloors; nf++ {
 		if nf == b.ElevatorFloor || nf < b.ElevatorFloor-1 || nf > b.ElevatorFloor+1 {
 			continue
 		}
 		for i, x := range b.Items {
-			if x.Floor != b.ElevatorFloor || x.Isotope == 0 {
+			if x.Floor() != b.ElevatorFloor || x.Isotope() == 0 {
 				continue
 			}
 			child := b.MakeCopy(nf, i, -1)
@@ -113,11 +141,11 @@ func (b *Board) MakeMoves() BoardList {
 			}
 		}
 		for i, x := range b.Items {
-			if x.Floor != b.ElevatorFloor || x.Isotope == 0 {
+			if x.Floor() != b.ElevatorFloor || x.Isotope() == 0 {
 				continue
 			}
 			for j, y := range b.Items {
-				if i <= j || y.Floor != b.ElevatorFloor || y.Isotope == 0 {
+				if i <= j || y.Floor() != b.ElevatorFloor || y.Isotope() == 0 {
 					continue
 				}
 				child := b.MakeCopy(nf, i, j)
@@ -131,7 +159,7 @@ func (b *Board) MakeMoves() BoardList {
 	return ret
 }
 
-func (b Board) EvalLoop(seen map[Board]int, winner *int, wMtx *sync.Mutex, wg *sync.WaitGroup) {
+func (b Board) EvalLoop(seen map[Board]uint16, winner *uint16, wMtx *sync.Mutex, wg *sync.WaitGroup) {
 	children := b.MakeMoves()
 	for _, childPair := range children {
 		child := childPair.Child
@@ -154,19 +182,21 @@ func (b Board) EvalLoop(seen map[Board]int, winner *int, wMtx *sync.Mutex, wg *s
 	wg.Done()
 }
 
-func (b Board) ProcessBoard() int {
+func (b Board) ProcessBoard() uint16 {
 	b.Valid()
 
-	winner := 0
+	winner := uint16(0)
 
-	seen := make(map[Board]int)
-	seen[b] = 1
+	seen := make(map[Board]uint16)
+	seen[b] = uint16(1)
 	var mtx sync.Mutex
 	var wg sync.WaitGroup
 
 	wg.Add(1)
 	b.EvalLoop(seen, &winner, &mtx, &wg)
 	wg.Wait()
+
+	fmt.Println(len(seen))
 	return winner - seen[b]
 }
 
@@ -176,9 +206,9 @@ func main() {
 	demo := Board{
 		ElevatorFloor: 0,
 		Items: [14]Item{
-			{hydrogen, false, 0}, {lithium, false, 0},
-			{hydrogen, true, 1},
-			{lithium, true, 2},
+			FullItem{hydrogen, false, 0}.Serialize(), FullItem{lithium, false, 0}.Serialize(),
+			FullItem{hydrogen, true, 1}.Serialize(),
+			FullItem{lithium, true, 2}.Serialize(),
 		},
 	}
 	fmt.Println(demo.ProcessBoard())
@@ -191,9 +221,9 @@ func main() {
 	state := Board{
 		ElevatorFloor: 0,
 		Items: [14]Item{
-			{thulium, true, 0}, {thulium, false, 0}, {plutonium, true, 0}, {strontium, true, 0},
-			{plutonium, false, 1}, {strontium, false, 1},
-			{promethium, true, 2}, {promethium, false, 2}, {ruthenium, true, 2}, {ruthenium, false, 2},
+			FullItem{thulium, true, 0}.Serialize(), FullItem{thulium, false, 0}.Serialize(), FullItem{plutonium, true, 0}.Serialize(), FullItem{strontium, true, 0}.Serialize(),
+			FullItem{plutonium, false, 1}.Serialize(), FullItem{strontium, false, 1}.Serialize(),
+			FullItem{promethium, true, 2}.Serialize(), FullItem{promethium, false, 2}.Serialize(), FullItem{ruthenium, true, 2}.Serialize(), FullItem{ruthenium, false, 2}.Serialize(),
 		},
 	}
 	fmt.Println(state.ProcessBoard())
@@ -203,10 +233,10 @@ func main() {
 	extra := Board{
 		ElevatorFloor: 0,
 		Items: [14]Item{
-			{thulium, true, 0}, {thulium, false, 0}, {plutonium, true, 0}, {strontium, true, 0},
-			{plutonium, false, 1}, {strontium, false, 1},
-			{promethium, true, 2}, {promethium, false, 2}, {ruthenium, true, 2}, {ruthenium, false, 2},
-			{elerium, false, 0}, {elerium, true, 0}, {dilithium, false, 0}, {dilithium, true, 0},
+			FullItem{thulium, true, 0}.Serialize(), FullItem{thulium, false, 0}.Serialize(), FullItem{plutonium, true, 0}.Serialize(), FullItem{strontium, true, 0}.Serialize(),
+			FullItem{plutonium, false, 1}.Serialize(), FullItem{strontium, false, 1}.Serialize(),
+			FullItem{promethium, true, 2}.Serialize(), FullItem{promethium, false, 2}.Serialize(), FullItem{ruthenium, true, 2}.Serialize(), FullItem{ruthenium, false, 2}.Serialize(),
+			FullItem{elerium, false, 0}.Serialize(), FullItem{elerium, true, 0}.Serialize(), FullItem{dilithium, false, 0}.Serialize(), FullItem{dilithium, true, 0}.Serialize(),
 		},
 	}
 	fmt.Println(extra.ProcessBoard())
