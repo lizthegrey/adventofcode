@@ -123,7 +123,7 @@ func (c Coord) ProcessBoard() uint16 {
 	fmt.Println(len(seen))
 	in50 := 0
 	for _, steps := range seen {
-		if steps - seen[c] <= 50 {
+		if steps-seen[c] <= 50 {
 			in50++
 		}
 	}
@@ -134,11 +134,11 @@ func (c Coord) ProcessBoard() uint16 {
 func main() {
 	start := Coord{1, 1}
 	if printBoard {
-		for y := int8(0); y < winY * 2; y++ {
-			for x := int8(0); x < winX * 2; x++ {
+		for y := int8(0); y < winY*2; y++ {
+			for x := int8(0); x < winX*2; x++ {
 				passable := Coord{x, y}.IsPassable()
 				if x == start.X && y == start.Y {
-						fmt.Printf("S")
+					fmt.Printf("S")
 				} else if x == winX && y == winY {
 					fmt.Printf("F")
 				} else if passable {
