@@ -12,7 +12,7 @@ type Repeateds struct {
 
 type Cache map[int]Repeateds
 
-var Salt string = "abc"
+var Salt string = "qzyelonm"
 var StretchFactor int = 2016
 
 func (cache Cache) GetRepeateds(i int) Repeateds {
@@ -67,6 +67,7 @@ func main() {
 			if cache.GetRepeateds(i).Quints&r.FirstTrip != 0 {
 				fmt.Println(searchPos)
 				found++
+				break
 			}
 		}
 	}
