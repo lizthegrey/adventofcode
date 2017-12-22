@@ -13,11 +13,14 @@ var inputFile = flag.String("inputFile", "inputs/day07.input", "Relative file pa
 var partB = flag.Bool("partB", true, "Whether to use part B logic.")
 
 type Program struct {
-	Name     string
-	Weight   int
-	Children []string
-	Orphan   bool
+	Name        string
+	Weight      int
+	Children    []string
+	Orphan      bool
+	TotalWeight int
+	Balanced    bool
 }
+type Progs map[string]Program
 
 func main() {
 	flag.Parse()
@@ -28,7 +31,7 @@ func main() {
 	}
 	contents := string(bytes)
 	lines := strings.Split(contents, "\n")
-	programs := make(map[string]Program)
+	programs := make(Progs)
 
 	re := regexp.MustCompile("([a-z]+) \\(([0-9]+)\\)(?: -> ([ a-z,]+))?")
 
@@ -48,10 +51,10 @@ func main() {
 			return
 		}
 		children := make([]string, 0)
-		if len(m) == 4 {
+		if len(m[3]) > 0 {
 			children = strings.Split(m[3], ", ")
 		}
-		programs[name] = Program{name, weight, children, true}
+		programs[name] = Program{name, weight, children, true, 0, true}
 	}
 	for _, v := range programs {
 		for _, child := range v.Children {
@@ -60,9 +63,41 @@ func main() {
 			programs[child] = c
 		}
 	}
+	root := ""
 	for k, v := range programs {
 		if v.Orphan {
-			fmt.Printf("Found orphaned node: %s\n", k)
+			fmt.Printf("Found root node: %s\n", k)
+			root = k
 		}
 	}
+	programs.Check(root)
+}
+
+func (pgs Progs) Check(n string) {
+	p := pgs[n]
+	p.TotalWeight = p.Weight
+	lastChildWeight := 0
+	allChildrenBalanced := true
+	for _, c := range p.Children {
+		pgs.Check(c)
+		childWeight := pgs[c].TotalWeight
+		if !pgs[c].Balanced {
+			allChildrenBalanced = false
+		}
+		if lastChildWeight != 0 && lastChildWeight != childWeight {
+			p.Balanced = false
+		}
+		lastChildWeight = childWeight
+		p.TotalWeight += childWeight
+	}
+	if allChildrenBalanced && !p.Balanced {
+		// Then the problem is in the direct weights of one of my children.
+		// Spit out for a human to analyze.
+		fmt.Printf("Found source of imbalance: node %s has imbalanced children: ", n)
+		for _, c := range p.Children {
+			fmt.Printf("%s -> %d, ", c, pgs[c].TotalWeight)
+		}
+		fmt.Printf("\n")
+	}
+	pgs[n] = p
 }
