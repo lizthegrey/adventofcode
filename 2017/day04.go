@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
+	"sort"
 	"strings"
 )
 
@@ -26,6 +27,9 @@ outer:
 		fields := strings.Fields(line)
 		seen := make(map[string]bool)
 		for _, word := range fields {
+			if *partB {
+				word = normalize(word)
+			}
 			if seen[word] {
 				continue outer
 			}
@@ -34,4 +38,16 @@ outer:
 		valid++
 	}
 	fmt.Printf("Found %d valid passphrases.\n", valid)
+}
+
+type ByRune []rune
+
+func (a ByRune) Len() int           { return len(a) }
+func (a ByRune) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a ByRune) Less(i, j int) bool { return a[i] < a[j] }
+
+func normalize(s string) string {
+	var rs []rune = []rune(s)
+	sort.Sort(ByRune(rs))
+	return string(rs)
 }
