@@ -18,7 +18,7 @@ func main() {
 
 	fields := strings.Fields(*input)
 	var allocator State
-	seen := make(map[State]bool)
+	seen := make(map[State]int)
 
 	for i, num := range fields {
 		n, err := strconv.Atoi(num)
@@ -29,12 +29,12 @@ func main() {
 		allocator[i] = n
 	}
 
-	i := 0
-	for ; seen[allocator] == false; i++ {
-		seen[allocator] = true
+	i := 1
+	for ; seen[allocator] == 0; i++ {
+		seen[allocator] = i
 		allocator.Reallocate()
 	}
-	fmt.Printf("%d steps.\n", i)
+	fmt.Printf("%d steps to reach first repeat and %d steps in loop.\n", i-1, i-seen[allocator])
 }
 
 func (s *State) Reallocate() {
