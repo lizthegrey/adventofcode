@@ -39,7 +39,11 @@ func main() {
 	steps := 0
 	for pos := 0; pos >= 0 && pos < len(l); steps++ {
 		offset := l[pos]
-		l[pos] += Inst(1)
+		if *partB && offset >= 3 {
+			l[pos] += Inst(-1)
+		} else {
+			l[pos] += Inst(1)
+		}
 		pos += int(offset)
 	}
 
