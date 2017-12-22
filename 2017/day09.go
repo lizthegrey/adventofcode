@@ -18,13 +18,15 @@ func main() {
 	}
 	contents := string(bytes[:len(bytes)-1])
 	for _, l := range strings.Split(contents, "\n") {
-		fmt.Printf("Score for input with length %d: %d\n", len(l), score(l))
+		score, garbage := process(l)
+		fmt.Printf("Score for input with length %d: %d with %d removed garbage\n", len(l), score, garbage)
 	}
 }
 
-func score(s string) int {
+func process(s string) (int, int) {
 	totalScore := 0
 	groupScore := 0
+	removedGarbage := 0
 	var inGarbage, escaped bool
 	for _, c := range s {
 		if escaped {
@@ -32,11 +34,13 @@ func score(s string) int {
 			continue
 		}
 		if inGarbage {
-			if c == '>' {
+			switch c {
+			case '>':
 				inGarbage = false
-			}
-			if c == '!' {
+			case '!':
 				escaped = true
+			default:
+				removedGarbage++
 			}
 			continue
 		}
@@ -57,5 +61,5 @@ func score(s string) int {
 			// Nothing needs to happen here.
 		}
 	}
-	return totalScore
+	return totalScore, removedGarbage
 }
