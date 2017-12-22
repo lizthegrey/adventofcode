@@ -9,7 +9,8 @@ import (
 	"strings"
 )
 
-var inputFile = flag.String("inputFile", "day02.input", "Relative file path to use as input.")
+var inputFile = flag.String("inputFile", "inputs/day02.input", "Relative file path to use as input.")
+var partB = flag.Bool("partB", true, "Whether to use part B logic.")
 
 func main() {
 	flag.Parse()
@@ -26,8 +27,11 @@ func main() {
 		}
 		largest := -1
 		smallest := math.MaxInt16
-		for _, num := range strings.Fields(line) {
+		fields := strings.Fields(line)
+		seen := make([]int, len(fields))
+		for i, num := range fields {
 			n, err := strconv.Atoi(num)
+			seen[i] = n
 			if err != nil {
 				fmt.Printf("Could not parse %s because %v.\n", num, err)
 			}
@@ -37,8 +41,25 @@ func main() {
 			if n > largest {
 				largest = n
 			}
+			if *partB {
+				for j := 0; j < i; j++ {
+					dividend, divisor := -1, -1
+					if seen[j] < n {
+						dividend = n
+						divisor = seen[j]
+					} else {
+						dividend = seen[j]
+						divisor = n
+					}
+					if dividend%divisor == 0 {
+						result += dividend / divisor
+					}
+				}
+			}
 		}
-		result += largest - smallest
+		if !*partB {
+			result += largest - smallest
+		}
 	}
 	fmt.Printf("Result is %d\n", result)
 }
