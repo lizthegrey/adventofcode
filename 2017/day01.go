@@ -12,11 +12,8 @@ var partB = flag.Bool("partB", true, "Whether to use the Part B logic.")
 func main() {
 	flag.Parse()
 
-	lastVal := -1  // Initialized to value that should never be a real digit.
 	runningSum := 0
-	firstVal := -1
-
-	// digitsSeen := make([]int, len(*input))
+	digits := make([]int, len(*input))
 
 	for i, c := range *input {
 		curVal, err := strconv.Atoi(string(c))
@@ -24,16 +21,23 @@ func main() {
 			fmt.Printf("Couldn't parse: %v\n", err)
 			return
 		}
-		if i == 0 {
-			firstVal = curVal
-		}
-		if curVal == lastVal {
-			runningSum += curVal
-		}
-		lastVal = curVal
+		digits[i] = curVal
 	}
-	if lastVal == firstVal {
-		runningSum += lastVal
+
+	for i, curVal := range digits {
+		if *partB {
+			if digits[(len(digits)/2+i)%len(digits)] == curVal {
+				runningSum += curVal
+			}
+		} else {
+			if i == 0 {
+				if digits[len(digits)-1] == curVal {
+					runningSum += curVal
+				}
+			} else if curVal == digits[i-1] {
+				runningSum += curVal
+			}
+		}
 	}
 
 	fmt.Printf("%d\n", runningSum)
