@@ -11,7 +11,6 @@ import (
 )
 
 var inputFile = flag.String("inputFile", "inputs/day08.input", "Relative file path to use as input.")
-var partB = flag.Bool("partB", true, "Whether to use part B logic.")
 
 func main() {
 	flag.Parse()
@@ -26,6 +25,7 @@ func main() {
 	re := regexp.MustCompile("([a-z]+) (inc|dec) ([0-9-]+) if ([a-z]+) (==|<|<=|>|>=|\\!=) ([0-9-]+)")
 
 	regs := make(map[string]int)
+	highestCurrentValue := 0
 	for _, l := range lines {
 		if len(l) == 0 {
 			break
@@ -72,6 +72,9 @@ func main() {
 		}
 		if operate {
 			regs[r] += delta * amount
+			if regs[r] > highestCurrentValue {
+				highestCurrentValue = regs[r]
+			}
 		}
 	}
 	highest := math.MinInt32
@@ -80,5 +83,5 @@ func main() {
 			highest = v
 		}
 	}
-	fmt.Printf("Highest value: %d\n", highest)
+	fmt.Printf("Highest value at end: %d; highest value during execution: %d\n", highest, highestCurrentValue)
 }
