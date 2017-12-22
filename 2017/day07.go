@@ -10,7 +10,6 @@ import (
 )
 
 var inputFile = flag.String("inputFile", "inputs/day07.input", "Relative file path to use as input.")
-var partB = flag.Bool("partB", true, "Whether to use part B logic.")
 
 type Program struct {
 	Name        string
