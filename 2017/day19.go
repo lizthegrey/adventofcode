@@ -62,7 +62,7 @@ func main() {
 		}
 	}
 
-	for {
+	for steps := 1; ; steps++ {
 		switch packetDir {
 		case 0:
 			packetY--
@@ -98,8 +98,9 @@ func main() {
 			fmt.Printf("%c", board[packetY][packetX].Letter)
 		}
 		if !board[packetY][packetX].Passable {
-			break
+			fmt.Println()
+			fmt.Printf("Steps traversed: %d\n", steps)
+			return
 		}
 	}
-	fmt.Println()
 }
