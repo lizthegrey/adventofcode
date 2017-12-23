@@ -9,6 +9,9 @@ import (
 )
 
 var inputFile = flag.String("inputFile", "inputs/day16.input", "Relative file path to use as input.")
+var iterations = flag.Int("iterations", 1, "Number of iterations to run.")
+
+type Cache map[[16]byte]int
 
 func main() {
 	flag.Parse()
@@ -27,13 +30,36 @@ func main() {
 		lookup[byte('a')+byte(i)] = i
 	}
 
+	memo := make(Cache)
+	for i := 0; i < *iterations; i++ {
+		lookup, order = dance(instructions, lookup, order)
+		if prev, found := memo[order]; found {
+			loopLen := i - prev
+			fmt.Printf("Positions %d and %d repeat (length %d).", prev, i, loopLen)
+			break
+		} else {
+			memo[order] = i
+		}
+	}
+
+	for _, v := range order {
+		fmt.Printf("%c", v)
+	}
+	fmt.Println()
+}
+
+func dance(instructions []string, l map[byte]int, order [16]byte) (map[byte]int, [16]byte) {
+	lookup := make(map[byte]int)
+	for k, v := range l {
+		lookup[k] = v
+	}
 	for _, inst := range instructions {
 		switch inst[0] {
 		case 's':
 			count, err := strconv.Atoi(inst[1:])
 			if err != nil {
 				fmt.Printf("Failed to parse instruction %s\n", inst)
-				return
+				return lookup, order
 			}
 			var neworder [16]byte
 			for i := 0; i < 16; i++ {
@@ -53,12 +79,12 @@ func main() {
 			a, err := strconv.Atoi(operands[0])
 			if err != nil {
 				fmt.Printf("Failed to parse instruction %s: %s\n", inst)
-				return
+				return lookup, order
 			}
 			b, err := strconv.Atoi(operands[1])
 			if err != nil {
 				fmt.Printf("Failed to parse instruction %s: %s\n", inst)
-				return
+				return lookup, order
 			}
 			ca := order[a]
 			cb := order[b]
@@ -77,8 +103,5 @@ func main() {
 			lookup[cb] = a
 		}
 	}
-	for _, v := range order {
-		fmt.Printf("%c", v)
-	}
-	fmt.Println()
+	return lookup, order
 }
