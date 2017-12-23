@@ -9,7 +9,6 @@ import (
 )
 
 var inputFile = flag.String("inputFile", "inputs/day18.input", "Relative file path to use as input.")
-var iterations = flag.Int("iterations", 1, "Number of iterations to run.")
 
 type Machine struct {
 	Ip        int

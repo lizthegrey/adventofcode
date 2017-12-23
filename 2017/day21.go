@@ -9,6 +9,7 @@ import (
 
 var inputFile = flag.String("inputFile", "inputs/day21.input", "Relative file path to use as input.")
 var cycles = flag.Int("cycles", 5, "The number of cycles to simulate.")
+var verbose = flag.Bool("verbose", false, "Whether to print the final grid.")
 
 type Pattern2 [2][2]bool
 type Pattern3 [3][3]bool
@@ -122,13 +123,19 @@ func main() {
 	for i := 0; i < len(board); i++ {
 		for j := 0; j < len(board[i]); j++ {
 			if board[i][j] {
-				fmt.Printf("#")
+				if *verbose {
+					fmt.Printf("#")
+				}
 				on++
 			} else {
-				fmt.Printf(".")
+				if *verbose {
+					fmt.Printf(".")
+				}
 			}
 		}
-		fmt.Println()
+		if *verbose {
+			fmt.Println()
+		}
 	}
 	fmt.Println(on)
 }
