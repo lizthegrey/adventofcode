@@ -52,7 +52,17 @@ func main() {
 	}
 	visited := make(map[int]bool)
 	programs.DeepTraverse(0, visited)
-	fmt.Println(len(visited))
+	fmt.Printf("Group with 0 contains %d nodes.\n", len(visited))
+
+	groups := 1
+	for k := range programs {
+		if visited[k] {
+			continue
+		}
+		programs.DeepTraverse(k, visited)
+		groups++
+	}
+	fmt.Printf("Total groups: %d\n", groups)
 }
 
 func (p Progs) DeepTraverse(i int, visited map[int]bool) {
