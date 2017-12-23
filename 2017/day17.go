@@ -12,18 +12,21 @@ var iterations = flag.Int("iterations", 2017, "The number of insertions to perfo
 func main() {
 	flag.Parse()
 
-	r := ring.New(1)
-	Write(r, 0)
+	start := ring.New(1)
+	Write(start, 0)
 
+	r := start
 	for i := 1; i < *iterations+1; i++ {
-		for s := 0; s < *steps; s++ {
+		for s := 0; s < *steps%r.Len(); s++ {
 			r = r.Next()
 		}
 		insert := ring.New(1)
 		Write(insert, i)
 		r = r.Link(insert).Prev()
 	}
-	fmt.Println(Read(r.Next()))
+	fmt.Printf("Value after 2017 is %d.\n", Read(r.Next()))
+
+	fmt.Printf("Value after 0 is %d.\n", Read(start.Next()))
 }
 
 func Read(r *ring.Ring) int {
