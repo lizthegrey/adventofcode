@@ -9,6 +9,7 @@ import (
 )
 
 var inputFile = flag.String("inputFile", "inputs/day24.input", "Relative file path to use as input.")
+var partB = flag.Bool("partB", true, "Use length of bridge as primary consideration instead of score.")
 
 type Part struct {
 	A, B int
@@ -52,13 +53,15 @@ func main() {
 		}
 	}
 
-	score := Search([]int{}, 0, pm, parts)
+	_, score := Search([]int{}, 0, pm, parts, *partB)
 	fmt.Println(score)
 }
 
-func Search(incremental Bridge, openPort int, pm PortMap, parts []Part) int {
+func Search(incremental Bridge, openPort int, pm PortMap, parts []Part, useLength bool) (int, int) {
 	toSearch := pm[openPort]
-	highest := 0
+	longest := 0
+	highest := make(map[int]int)
+	totalHighest := 0
 
 outer:
 	for _, idx := range toSearch {
@@ -76,10 +79,24 @@ outer:
 		trial := make([]int, len(incremental)+1)
 		copy(trial, incremental)
 		trial = append(trial, idx)
-		score := parts[idx].A + parts[idx].B + Search(trial, newPort, pm, parts)
-		if score > highest {
-			highest = score
+
+		length, score := Search(trial, newPort, pm, parts, useLength)
+
+		score += parts[idx].A + parts[idx].B
+		length++
+
+		if length > longest {
+			longest = length
+		}
+		if score > highest[length] {
+			highest[length] = score
+		}
+		if score > totalHighest {
+			totalHighest = score
 		}
 	}
-	return highest
+	if useLength {
+		return longest, highest[longest]
+	}
+	return longest, totalHighest
 }
