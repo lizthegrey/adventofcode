@@ -9,11 +9,12 @@ import (
 
 var inputFile = flag.String("inputFile", "inputs/day22.input", "Relative file path to use as input.")
 var cycles = flag.Int("cycles", 5, "The number of cycles to simulate.")
+var partB = flag.Bool("partB", true, "Use part B logic with 4 states.")
 
 type Coord struct {
 	X, Y int
 }
-type Board map[Coord]bool
+type Board map[Coord]byte
 type WorkerState struct {
 	Environment Board
 	Loc         Coord
@@ -44,7 +45,7 @@ func main() {
 					X: c - (width / 2),
 					Y: (height / 2) - r,
 				}
-				b[loc] = true
+				b[loc] = 2
 			}
 		}
 	}
@@ -64,18 +65,26 @@ func (ws *WorkerState) Tick() bool {
 	infected := false
 
 	// Turn
-	if ws.Environment[ws.Loc] {
-		ws.Dir = (ws.Dir + 1) % 4
-	} else {
+	switch ws.Environment[ws.Loc] {
+	case 0:
 		ws.Dir = (ws.Dir + 3) % 4
+	case 1:
+		// Nothing happens
+	case 2:
+		ws.Dir = (ws.Dir + 1) % 4
+	case 3:
+		ws.Dir = (ws.Dir + 2) % 4
 	}
 
 	// Toggle
-	if ws.Environment[ws.Loc] {
-		delete(ws.Environment, ws.Loc)
-	} else {
+	i := 2
+	if *partB {
+		i = 1
+	}
+	ws.Environment[ws.Loc] = (ws.Environment[ws.Loc] + byte(i)) % 4
+
+	if ws.Environment[ws.Loc] == 2 {
 		infected = true
-		ws.Environment[ws.Loc] = true
 	}
 
 	switch ws.Dir {
