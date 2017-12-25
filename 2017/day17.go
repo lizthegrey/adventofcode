@@ -17,7 +17,7 @@ func main() {
 
 	r := start
 	for i := 1; i < *iterations+1; i++ {
-		for s := 0; s < *steps%r.Len(); s++ {
+		for s := 0; s < *steps; s++ {
 			r = r.Next()
 		}
 		insert := ring.New(1)
