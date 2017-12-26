@@ -6,50 +6,38 @@ import (
 
 func main() {
 test:
-	for i := 0; i < 10; i++ {
-		if i%1000 == 0 {
-			fmt.Printf("Testing %d\n", i)
-		}
-		fmt.Println()
+	for i := 0; ; i++ {
+		successes := 0
 		last := 1
 
-		b := 0
-		c := 0
 		d := i + 365*7
-		a := d
+		b := d
 
 		for {
-			b = a
-			a = 0
+			c := b % 2
+			b = b >> 1
 
-			c = b % 2
-			a = b / 2
-
-			var out int
-			if c == 1 {
-				out = 1
-			} else if c == 0 {
-				out = 0
-			} else {
-				fmt.Println("impossible")
-			}
-
-			if !emit(out, last) {
+			if !emit(c, last, &successes) {
 				continue test
 			}
-			last = out
-			if a == 0 {
-				continue
+			if successes == 100 {
+				fmt.Println(i)
+				return
 			}
-			a = d
+			last = c
+			if b != 0 {
+				continue
+			} else {
+				b = d
+			}
 		}
 	}
 }
 
-func emit(b int, last int) bool {
-	fmt.Printf("%d", b)
+func emit(b int, last int, successes *int) bool {
 	if b == last {
 		return false
 	}
+	*successes++
 	return true
 }
