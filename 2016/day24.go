@@ -10,6 +10,7 @@ import (
 )
 
 var inputFile = flag.String("inputFile", "inputs/day24.input", "Relative file path to use as input.")
+var partB = flag.Bool("partB", true, "Return to 0 after all other nodes visited.")
 
 type Coord struct {
 	Row, Col int
@@ -102,6 +103,9 @@ func main() {
 		for _, v := range p {
 			dist += memo[Pair{loc, v}]
 			loc = v
+		}
+		if *partB {
+			dist += memo[Pair{loc, 0}]
 		}
 		if dist < shortest {
 			shortest = dist
