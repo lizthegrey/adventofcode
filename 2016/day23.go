@@ -1,13 +1,14 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"regexp"
 	"strconv"
 	"strings"
 )
 
-var trace = false
+var trace = flag.Bool("trace", false, "Print out each instruction as it's being executed.")
 
 type Machine struct {
 	A, B, C, D         int
@@ -32,6 +33,7 @@ func (m *Machine) Execute() bool {
 	case "tgl":
 		offset := *i.Dst + m.InstructionPointer
 		if offset < 0 || offset >= len(m.Instructions) {
+			m.InstructionPointer++
 			return true
 		}
 		mod := &m.Instructions[offset]
@@ -76,6 +78,7 @@ func (m *Machine) Execute() bool {
 }
 
 func main() {
+	flag.Parse()
 	testInput := strings.Split(`cpy 2 a
 tgl a
 tgl a
@@ -274,8 +277,12 @@ func execute(input []string, initA int) {
 	}
 
 	for m.Execute() {
-		if trace {
-			fmt.Printf("IP: %d -- A: %d B: %d C: %d D: %d\n", m.InstructionPointer, m.A, m.B, m.C, m.D)
+		if *trace {
+			var op string
+			if m.InstructionPointer >= 0 && m.InstructionPointer < len(m.Instructions) {
+				op = m.Instructions[m.InstructionPointer].Op
+			}
+			fmt.Printf("IP: %d (%s) -- A: %d B: %d C: %d D: %d\n", m.InstructionPointer, op, m.A, m.B, m.C, m.D)
 		}
 	}
 
