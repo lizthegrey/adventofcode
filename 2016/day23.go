@@ -9,6 +9,7 @@ import (
 )
 
 var trace = flag.Bool("trace", false, "Print out each instruction as it's being executed.")
+var eggs = flag.Int("eggs", 7, "The number of eggs to put in register A.")
 
 type Machine struct {
 	A, B, C, D         int
@@ -114,7 +115,7 @@ inc d
 jnz d -2
 inc c
 jnz c -5`, "\n")
-	execute(input, 7)
+	execute(input, *eggs)
 }
 
 func execute(input []string, initA int) {
