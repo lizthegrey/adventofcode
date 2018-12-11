@@ -8,7 +8,6 @@ import (
 
 var numPlayers = flag.Int("numPlayers", 9, "The number of players.")
 var maxMarble = flag.Int("maxMarble", 25, "The maximum marble score.")
-var partB = flag.Bool("partB", false, "Whether to use the Part B logic.")
 
 func main() {
 	flag.Parse()
