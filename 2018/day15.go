@@ -239,7 +239,6 @@ func RunRounds(elfPower int, uByRO UByRO, t Terrain, uByC Units, maxX, maxY int)
 		}
 		sort.Sort(uByRO)
 
-		survivors := make(UByRO, 0)
 		for _, u := range uByRO {
 			// Tick the unit if it wasn't killed earlier in turn.
 			if u.HP <= 0 {
@@ -367,6 +366,7 @@ func RunRounds(elfPower int, uByRO UByRO, t Terrain, uByC Units, maxX, maxY int)
 		}
 
 		// Propagate and tabulate only survivors.
+		survivors := make(UByRO, 0)
 		for _, u := range uByC {
 			survivors = append(survivors, u)
 		}
