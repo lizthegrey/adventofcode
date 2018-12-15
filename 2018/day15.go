@@ -177,34 +177,10 @@ func main() {
 	}
 
 	if !*partB {
-		RunRounds(3, uByRO, t, uByC)
+		RunRounds(3, uByRO, t, uByC, maxX, maxY)
 
 		// Print final state.
-		for y := 0; y <= maxY; y++ {
-			hps := make([]int, 0)
-
-			for x := 0; x <= maxX; x++ {
-				c := Coord{x, y}
-				if !t[c] {
-					fmt.Printf("#")
-					continue
-				}
-				if u := uByC[c]; u != nil {
-					if u.Force {
-						fmt.Printf("E")
-					} else {
-						fmt.Printf("G")
-					}
-					hps = append(hps, u.HP)
-				} else {
-					fmt.Printf(".")
-				}
-			}
-			for _, v := range hps {
-				fmt.Printf(" %d", v)
-			}
-			fmt.Println()
-		}
+		PrintBoard(t, uByC, maxX, maxY)
 		return
 	}
 
@@ -220,7 +196,8 @@ func main() {
 			pUByC[u.Pos] = &u
 		}
 
-		if RunRounds(p, pUByRO, t, pUByC) {
+		if RunRounds(p, pUByRO, t, pUByC, maxX, maxY) {
+			PrintBoard(t, uByC, maxX, maxY)
 			fmt.Println(p)
 			return
 		}
@@ -228,15 +205,40 @@ func main() {
 	fmt.Println("Couldn't find a viable elf power.")
 }
 
-func RunRounds(elfPower int, uByRO UByRO, t Terrain, uByC Units) bool {
+func PrintBoard(t Terrain, uByC Units, maxX, maxY int) {
+	for y := 0; y <= maxY; y++ {
+		hps := make([]int, 0)
+		for x := 0; x <= maxX; x++ {
+			c := Coord{x, y}
+			if !t[c] {
+				fmt.Printf("#")
+				continue
+			}
+			if u := uByC[c]; u != nil {
+				if u.Force {
+					fmt.Printf("E")
+				} else {
+					fmt.Printf("G")
+				}
+				hps = append(hps, u.HP)
+			} else {
+				fmt.Printf(".")
+			}
+		}
+		for _, v := range hps {
+			fmt.Printf(" %d", v)
+		}
+		fmt.Println()
+	}
+}
+
+func RunRounds(elfPower int, uByRO UByRO, t Terrain, uByC Units, maxX, maxY int) bool {
 	for rounds := 0; *maxRounds < 0 || rounds < *maxRounds; rounds++ {
 		if *verbose {
 			fmt.Printf("Starting round %d...\n", rounds+1)
 		}
 		sort.Sort(uByRO)
 
-		elvesAlive := 0
-		goblinsAlive := 0
 		survivors := make(UByRO, 0)
 		for _, u := range uByRO {
 			// Tick the unit if it wasn't killed earlier in turn.
@@ -244,11 +246,36 @@ func RunRounds(elfPower int, uByRO UByRO, t Terrain, uByC Units) bool {
 				continue
 			}
 
+			foundAliveTarget := false
+			for _, v := range uByC {
+				if v.Force != u.Force {
+					foundAliveTarget = true
+				}
+			}
+
+			if !foundAliveTarget {
+				fmt.Printf("Combat ends after %d full rounds\n", rounds)
+				winner := ""
+				if u.Force {
+					winner = "Elves"
+				} else {
+					winner = "Goblins"
+				}
+				totalHP := 0
+				for _, c := range uByC {
+					totalHP += c.HP
+				}
+				fmt.Printf("%s win with %d total hit points left\n", winner, totalHP)
+				fmt.Printf("Outcome: %d * %d = %d\n", rounds, totalHP, rounds*totalHP)
+				return true
+			}
+
 			// Move towards a target if we're not next to something already.
 			target := u.PickAdjacentTarget(uByC)
 			if target == nil {
 				// Then we need to move towards a square. Nothing's next to us.
 				destinations := make(map[Coord]bool)
+
 				for k, v := range uByC {
 					if v.Force == u.Force {
 						continue
@@ -310,10 +337,6 @@ func RunRounds(elfPower int, uByRO UByRO, t Terrain, uByC Units) bool {
 					sort.Sort(CDByRO(dests))
 					dest := dests[0]
 
-					if *verbose {
-						fmt.Printf("Moving pawn at %d,%d to %d,%d towards %d,%d\n", u.Pos.X, u.Pos.Y, dest.FirstStep.X, dest.FirstStep.Y, dest.Dest.X, dest.Dest.Y)
-					}
-
 					delete(uByC, u.Pos)
 					u.Pos = *dest.FirstStep
 					uByC[u.Pos] = u
@@ -345,33 +368,9 @@ func RunRounds(elfPower int, uByRO UByRO, t Terrain, uByC Units) bool {
 
 		// Propagate and tabulate only survivors.
 		for _, u := range uByC {
-			if u.Force {
-				elvesAlive++
-			} else {
-				goblinsAlive++
-			}
 			survivors = append(survivors, u)
 		}
 		uByRO = survivors
-
-		if elvesAlive == 0 || goblinsAlive == 0 {
-			// Print the result.
-			fmt.Printf("Combat ends after %d full rounds\n", rounds)
-			winner := ""
-			if elvesAlive == 0 {
-				winner = "Goblins"
-			} else {
-				winner = "Elves"
-			}
-			totalHP := 0
-			for _, c := range uByC {
-				totalHP += c.HP
-			}
-			fmt.Printf("%s win with %d total hit points left\n", winner, totalHP)
-			fmt.Printf("Outcome: %d * %d = %d\n", rounds, totalHP, rounds*totalHP)
-			break
-		}
 	}
-
 	return true
 }
