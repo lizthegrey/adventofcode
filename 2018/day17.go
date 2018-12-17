@@ -31,6 +31,7 @@ func main() {
 	clay := make(Items)
 	minX := 500
 	maxX := 500
+	minY := 100000
 	maxY := 0
 
 	for {
@@ -56,6 +57,9 @@ func main() {
 			if ubound > maxY {
 				maxY = ubound
 			}
+			if lbound < minY {
+				minY = lbound
+			}
 			for y := lbound; y <= ubound; y++ {
 				clay[Coord{x, y}] = true
 			}
@@ -66,6 +70,9 @@ func main() {
 			}
 			if maxX < ubound {
 				maxX = ubound
+			}
+			if y < minY {
+				minY = y
 			}
 			if y > maxY {
 				maxY = y
@@ -82,14 +89,13 @@ func main() {
 
 	for prevLen := -1; len(water)+len(traversed) != prevLen; {
 		prevLen = len(water) + len(traversed)
-		dropFall(traversed, water, clay, spring, minX, maxX, maxY)
-		fmt.Printf("Placed drops %d\n", len(water))
+		dropFall(traversed, water, clay, spring, maxY)
 	}
 
 	invalid := make([]Coord, 0)
 	for k := range water {
 		valid := true
-		for x := k.X; x >= minX; x-- {
+		for x := k.X; x >= minX-1; x-- {
 			left := Coord{x, k.Y}
 			if water[left] {
 				continue
@@ -99,7 +105,7 @@ func main() {
 			}
 			break
 		}
-		for x := k.X; x <= maxX; x++ {
+		for x := k.X; x <= maxX+1; x++ {
 			right := Coord{x, k.Y}
 			if water[right] {
 				continue
@@ -117,18 +123,24 @@ func main() {
 		delete(water, v)
 	}
 
-	for y := 0; y <= maxY; y++ {
-		for x := minX; x <= maxX; x++ {
+	offsetW, offsetT := 0, 0
+	for y := 0; y <= maxY+1; y++ {
+		for x := minX - 2; x <= maxX+2; x++ {
 			loc := Coord{x, y}
 			if loc == spring {
 				fmt.Printf("+")
-			}
-			if clay[loc] {
+			} else if clay[loc] {
 				fmt.Printf("#")
 			} else if water[loc] {
 				fmt.Printf("~")
+				if y < minY {
+					offsetW++
+				}
 			} else if traversed[loc] {
 				fmt.Printf("|")
+				if y < minY {
+					offsetT++
+				}
 			} else {
 				fmt.Printf(".")
 			}
@@ -136,19 +148,25 @@ func main() {
 		fmt.Println()
 	}
 
-	fmt.Println(len(traversed))
+	fmt.Printf("All reached: %d, retained: %d\n", len(traversed)-offsetT, len(water)-offsetW)
 }
 
-func dropFall(traversed, water, clay Items, spring Coord, minX, maxX, maxY int) {
+func dropFall(traversed, water, clay Items, spring Coord, maxY int) {
 	worklist := []Coord{spring}
+	seen := make(Items)
 	for len(worklist) != 0 {
 		loc := worklist[0]
-		newWork := loc.fallInner(traversed, water, clay, spring, minX, maxX, maxY)
+		if seen[loc] {
+			worklist = worklist[1:]
+			continue
+		}
+		seen[loc] = true
+		newWork := loc.fallInner(traversed, water, clay, spring, maxY)
 		worklist = append(newWork, worklist[1:]...)
 	}
 }
 
-func (drop Coord) fallInner(traversed, water, clay Items, spring Coord, minX, maxX, maxY int) []Coord {
+func (drop Coord) fallInner(traversed, water, clay Items, spring Coord, maxY int) []Coord {
 	iter := make([]Coord, 0)
 
 	if drop != spring {
@@ -165,7 +183,7 @@ func (drop Coord) fallInner(traversed, water, clay Items, spring Coord, minX, ma
 		return iter
 	}
 	if water[fall] {
-		for x := fall.X; x >= minX; x-- {
+		for x := fall.X; ; x-- {
 			left := Coord{x, fall.Y}
 			if water[left] {
 				continue
@@ -176,7 +194,7 @@ func (drop Coord) fallInner(traversed, water, clay Items, spring Coord, minX, ma
 			iter = append(iter, left)
 			break
 		}
-		for x := fall.X; x <= maxX; x++ {
+		for x := fall.X; ; x++ {
 			right := Coord{x, fall.Y}
 			if water[right] {
 				continue
