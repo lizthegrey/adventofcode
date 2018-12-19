@@ -14,17 +14,27 @@ type Coord struct {
 	X, Y int
 }
 
-func (c Coord) Adjacent() []Coord {
-	r := make([]Coord, 0)
-	for x := -1; x <= 1; x++ {
-		for y := -1; y <= 1; y++ {
-			if x == 0 && y == 0 {
+func (c Coord) Adjacent(t [50][50]int) (int, int) {
+	trees, yards := 0, 0
+
+	for xoff := -1; xoff <= 1; xoff++ {
+		for yoff := -1; yoff <= 1; yoff++ {
+			if xoff == 0 && yoff == 0 {
 				continue
 			}
-			r = append(r, Coord{c.X + x, c.Y + y})
+			y := c.Y + yoff
+			x := c.X + xoff
+			if y >= 50 || y < 0 || x >= 50 || x < 0 {
+				continue
+			}
+			if t[y][x] == 1 {
+				trees++
+			} else if t[y][x] == 2 {
+				yards++
+			}
 		}
 	}
-	return r
+	return trees, yards
 }
 
 func main() {
@@ -38,75 +48,92 @@ func main() {
 	// 0 == empty
 	// 1 == lumberyard
 	// 2 = trees
-	tiles := make(map[Coord]int)
+	var tiles [50][50]int
 
-	r := bufio.NewReader(f)
+	reader := bufio.NewReader(f)
 	for y := 0; ; y++ {
-		l, err := r.ReadString('\n')
+		l, err := reader.ReadString('\n')
 		if err != nil || len(l) == 0 {
 			break
 		}
+
 		l = l[:len(l)-1]
 		for x, c := range l {
-			loc := Coord{x, y}
 			switch c {
 			case '.':
-				tiles[loc] = 0
-			case '#':
-				tiles[loc] = 1
+				tiles[y][x] = 0
 			case '|':
-				tiles[loc] = 2
+				tiles[y][x] = 1
+			case '#':
+				tiles[y][x] = 2
 			}
 		}
 	}
 
+	// Look for cycles.
+	seen := make(map[[50][50]int]int)
+
+	loopLen := 0
+	loopStart := 0
+
 	for r := 0; r < *rounds; r++ {
-		newTiles := make(map[Coord]int)
+		var newTiles [50][50]int
 
-		for c, v := range tiles {
-			adj := c.Adjacent()
+		for y := 0; y < 50; y++ {
+			for x := 0; x < 50; x++ {
+				trees, yards := Coord{x, y}.Adjacent(tiles)
 
-			trees := 0
-			yards := 0
-			for _, n := range adj {
-				if tiles[n] == 1 {
-					yards++
-				} else if tiles[n] == 2 {
-					trees++
-				}
-			}
-
-			switch v {
-			case 0:
-				if trees >= 3 {
-					newTiles[c] = 2
-				} else {
-					newTiles[c] = 0
-				}
-			case 1:
-				if trees >= 1 && yards >= 1 {
-					newTiles[c] = 1
-				} else {
-					newTiles[c] = 0
-				}
-			case 2:
-				if yards >= 3 {
-					newTiles[c] = 1
-				} else {
-					newTiles[c] = 2
+				switch tiles[y][x] {
+				case 0:
+					if trees >= 3 {
+						newTiles[y][x] = 1
+					} else {
+						newTiles[y][x] = 0
+					}
+				case 1:
+					if yards >= 3 {
+						newTiles[y][x] = 2
+					} else {
+						newTiles[y][x] = 1
+					}
+				case 2:
+					if trees >= 1 && yards >= 1 {
+						newTiles[y][x] = 2
+					} else {
+						newTiles[y][x] = 0
+					}
 				}
 			}
 		}
+		if seen[newTiles] != 0 {
+			loopStart = seen[newTiles]
+			loopLen = r + 1 - loopStart
+			fmt.Printf("Loop detected: %d to %d.\n", loopStart, r+1)
+			break
+		}
+		seen[newTiles] = r + 1
 		tiles = newTiles
 	}
 
-	trees := 0
-	yards := 0
-	for _, v := range tiles {
-		if v == 1 {
-			yards++
-		} else if v == 2 {
-			trees++
+	if loopStart != 0 && loopLen != 0 {
+		state := loopStart + ((*rounds - loopStart) % loopLen)
+		fmt.Printf("Looking for state %d\n", state)
+		for k, v := range seen {
+			if v == state {
+				tiles = k
+				break
+			}
+		}
+	}
+
+	trees, yards := 0, 0
+	for y := 0; y < 50; y++ {
+		for x := 0; x < 50; x++ {
+			if tiles[y][x] == 1 {
+				trees++
+			} else if tiles[y][x] == 2 {
+				yards++
+			}
 		}
 	}
 	fmt.Printf("Found %d yards and %d trees for a result of %d.\n", yards, trees, yards*trees)
