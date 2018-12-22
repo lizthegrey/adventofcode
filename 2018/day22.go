@@ -10,48 +10,43 @@ var targetX = flag.Int("targetX", 13, "The target's X coordinate.")
 var targetY = flag.Int("targetY", 743, "The target's Y coordinate.")
 var margin = flag.Int("margin", 150, "The margin by which we'll check 'longer' paths.")
 
-type Move struct {
+type Position struct {
 	X, Y  int
 	Climb bool
 	Torch bool
 }
 
-type Path struct {
-	Steps    []Move
-	Distance int
-}
-
-func (m Move) Passable(erosion [][]int) bool {
-	if m.X < 0 || m.X >= len(erosion) {
+func (p Position) Passable(erosion [][]int) bool {
+	if p.X < 0 || p.X >= len(erosion) {
 		return false
 	}
-	if m.Y < 0 || m.Y >= len(erosion[0]) {
+	if p.Y < 0 || p.Y >= len(erosion[0]) {
 		return false
 	}
 
-	terrain := erosion[m.X][m.Y] % 3
+	terrain := erosion[p.X][p.Y] % 3
 	switch terrain {
 	case 0:
 		// Rocky
-		return m.Climb || m.Torch
+		return p.Climb || p.Torch
 	case 1:
 		// Wet
-		return !m.Torch
+		return !p.Torch
 	case 2:
 		// Narrow
-		return !m.Climb
+		return !p.Climb
 	}
 	return false
 }
 
-func (m Move) Moves(erosion [][]int) map[Move]int {
-	ret := make(map[Move]int)
-	terrain := erosion[m.X][m.Y] % 3
-	swapGear := m
+func (p Position) Moves(erosion [][]int) map[Position]int {
+	ret := make(map[Position]int)
+	terrain := erosion[p.X][p.Y] % 3
+	swapGear := p
 	switch terrain {
 	case 0:
 		// Rocky
-		if !m.Climb && !m.Torch {
+		if !p.Climb && !p.Torch {
 			// Illegal position.
 			return ret
 		}
@@ -74,25 +69,25 @@ func (m Move) Moves(erosion [][]int) map[Move]int {
 	}
 	ret[swapGear] = 7
 
-	up := m
+	up := p
 	up.Y--
 	if up.Passable(erosion) {
 		ret[up] = 1
 	}
 
-	down := m
+	down := p
 	down.Y++
 	if down.Passable(erosion) {
 		ret[down] = 1
 	}
 
-	left := m
+	left := p
 	left.X--
 	if left.Passable(erosion) {
 		ret[left] = 1
 	}
 
-	right := m
+	right := p
 	right.X++
 	if right.Passable(erosion) {
 		ret[right] = 1
@@ -130,66 +125,40 @@ func main() {
 	}
 	fmt.Printf("Total risk of area is %d\n", risk)
 
-	winner := Move{*targetX, *targetY, false, true}
-	start := Move{0, 0, false, true}
+	start := Position{0, 0, false, true}
+	winner := Position{*targetX, *targetY, false, true}
 
-	seen := make(map[Move]int)
-	seen[start] = 0
-	shortestPath := ComputeShortest(start, winner, erosion, seen)
+	shortestPath := ComputeShortest(start, winner, erosion)
 	fmt.Printf("Took %d moves to reach our friend.\n", shortestPath)
 }
 
-func ComputeShortest(start, winner Move, erosion [][]int, seen map[Move]int) int {
-	for maxSquareSide := 0; maxSquareSide < len(erosion) || maxSquareSide < len(erosion[0]); maxSquareSide++ {
-		if maxSquareSide%10 == 0 {
-			fmt.Printf("Processing square %d\n", maxSquareSide)
-		}
+func ComputeShortest(start, winner Position, erosion [][]int) int {
+	seen := make(map[Position]int)
+	seen[start] = 0
+	queue := []Position{start}
 
-		maxX := len(erosion)
-		maxY := len(erosion[0])
-		if maxSquareSide < maxX {
-			maxX = maxSquareSide
-		}
-		if maxSquareSide < maxY {
-			maxY = maxSquareSide
-		}
+	// Perform a BFS with backtracking.
+	for len(queue) != 0 {
+		pos := queue[0]
+		queue = queue[1:]
 
-		// Progressively re-compute the shortest paths to each location.
-		queue := make([]Move, 0)
-		for x := 0; x <= maxX; x++ {
-			nothing := Move{x, maxY, false, false}
-			climb := Move{x, maxY, true, false}
-			torch := Move{x, maxY, false, true}
-			queue = append(queue, nothing, climb, torch)
-		}
-		for y := 0; y <= maxY; y++ {
-			nothing := Move{maxX, y, false, false}
-			climb := Move{maxX, y, true, false}
-			torch := Move{maxX, y, false, true}
-			queue = append(queue, nothing, climb, torch)
-		}
-
-		for len(queue) != 0 {
-			pos := queue[0]
-			queue = queue[1:]
-
-			if shortest, ok := seen[pos]; !ok {
-				// We don't know how to get here yet.
+		if shortest, ok := seen[pos]; !ok {
+			// We don't know how to get here yet.
+			continue
+		} else {
+			moves := pos.Moves(erosion)
+			if len(moves) == 0 {
+				// Illegal position.
 				continue
-			} else {
-				moves := pos.Moves(erosion)
-				if len(moves) == 0 {
-					// Illegal position.
-					continue
-				}
-				for neighbor, incremental := range moves {
-					shortestPathToNeighbor, ok := seen[neighbor]
-					newPathLength := shortest + incremental
-					if !ok || newPathLength < shortestPathToNeighbor {
-						// Record new paths, as well as shortened paths.
-						seen[neighbor] = shortest + incremental
-						queue = append(queue, neighbor)
-					}
+			}
+			for neighbor, incremental := range moves {
+				shortestPathToNeighbor, ok := seen[neighbor]
+				newPathLength := shortest + incremental
+				if !ok || newPathLength < shortestPathToNeighbor {
+					// Record new paths, as well as shortened paths.
+					// Enqueue them to be re-run.
+					seen[neighbor] = shortest + incremental
+					queue = append(queue, neighbor)
 				}
 			}
 		}
