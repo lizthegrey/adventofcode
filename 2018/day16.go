@@ -1,6 +1,7 @@
 package main
 
 import (
+	"asm"
 	"bufio"
 	"flag"
 	"fmt"
@@ -15,117 +16,10 @@ var verbose = flag.Bool("verbose", false, "Whether to print verbose output.")
 
 var regDiagram = regexp.MustCompile(".*:[ ]+\\[(\\d+), (\\d+), (\\d+), (\\d+)\\]")
 
-type Registers [4]int
 type Instruction [4]int
 
-type Op func(Registers, int, int, int) Registers
-type OpRegistry map[int]Op
-type Ops []Op
-
-func Addr(r Registers, operA, operB, targetReg int) Registers {
-	result := r
-	result[targetReg] = r[operA] + r[operB]
-	return result
-}
-func Addi(r Registers, operA, operB, targetReg int) Registers {
-	result := r
-	result[targetReg] = r[operA] + operB
-	return result
-}
-func Mulr(r Registers, operA, operB, targetReg int) Registers {
-	result := r
-	result[targetReg] = r[operA] * r[operB]
-	return result
-}
-func Muli(r Registers, operA, operB, targetReg int) Registers {
-	result := r
-	result[targetReg] = r[operA] * operB
-	return result
-}
-func Banr(r Registers, operA, operB, targetReg int) Registers {
-	result := r
-	result[targetReg] = r[operA] & r[operB]
-	return result
-}
-func Bani(r Registers, operA, operB, targetReg int) Registers {
-	result := r
-	result[targetReg] = r[operA] & operB
-	return result
-}
-func Borr(r Registers, operA, operB, targetReg int) Registers {
-	result := r
-	result[targetReg] = r[operA] | r[operB]
-	return result
-}
-func Bori(r Registers, operA, operB, targetReg int) Registers {
-	result := r
-	result[targetReg] = r[operA] | operB
-	return result
-}
-func Setr(r Registers, operA, operB, targetReg int) Registers {
-	result := r
-	result[targetReg] = r[operA]
-	return result
-}
-func Seti(r Registers, operA, operB, targetReg int) Registers {
-	result := r
-	result[targetReg] = operA
-	return result
-}
-func Gtir(r Registers, operA, operB, targetReg int) Registers {
-	result := r
-	if operA > r[operB] {
-		result[targetReg] = 1
-	} else {
-		result[targetReg] = 0
-	}
-	return result
-}
-func Gtri(r Registers, operA, operB, targetReg int) Registers {
-	result := r
-	if r[operA] > operB {
-		result[targetReg] = 1
-	} else {
-		result[targetReg] = 0
-	}
-	return result
-}
-func Gtrr(r Registers, operA, operB, targetReg int) Registers {
-	result := r
-	if r[operA] > r[operB] {
-		result[targetReg] = 1
-	} else {
-		result[targetReg] = 0
-	}
-	return result
-}
-func Eqir(r Registers, operA, operB, targetReg int) Registers {
-	result := r
-	if operA == r[operB] {
-		result[targetReg] = 1
-	} else {
-		result[targetReg] = 0
-	}
-	return result
-}
-func Eqri(r Registers, operA, operB, targetReg int) Registers {
-	result := r
-	if r[operA] == operB {
-		result[targetReg] = 1
-	} else {
-		result[targetReg] = 0
-	}
-	return result
-}
-func Eqrr(r Registers, operA, operB, targetReg int) Registers {
-	result := r
-	if r[operA] == r[operB] {
-		result[targetReg] = 1
-	} else {
-		result[targetReg] = 0
-	}
-	return result
-}
+type OpRegistry map[int]asm.Op
+type Ops []asm.Op
 
 func main() {
 	flag.Parse()
@@ -135,11 +29,12 @@ func main() {
 	}
 	defer f.Close()
 
-	ops := Ops{Addr, Addi, Mulr, Muli, Banr, Bani, Borr, Bori, Setr, Seti}
-	ops = append(ops, Gtir, Gtri, Gtrr, Eqir, Eqri, Eqrr)
-
-	opN := []string{"addr", "addi", "mulr", "muli", "banr", "bani", "borr", "bori", "setr", "seti"}
-	opN = append(opN, "gtir", "gtri", "gtrr", "eqir", "eqri", "eqrr")
+	ops := make(Ops, 0)
+	opN := make([]string, 0)
+	for k, v := range asm.AllOps {
+		opN = append(opN, k)
+		ops = append(ops, v)
+	}
 
 	reader := bufio.NewReader(f)
 	spaces := 0
@@ -178,7 +73,7 @@ func main() {
 	for ln := 0; ln+4 < len(lines); {
 		// Parse the before.
 		before := regDiagram.FindStringSubmatch(lines[ln])[1:5]
-		var rb Registers
+		var rb asm.Registers
 		for i := 0; i < 4; i++ {
 			rb[i], _ = strconv.Atoi(before[i])
 		}
@@ -194,7 +89,7 @@ func main() {
 		// Parse the after.
 		ln++
 		after := regDiagram.FindStringSubmatch(lines[ln])[1:5]
-		var ra Registers
+		var ra asm.Registers
 		for i := 0; i < 4; i++ {
 			ra[i], _ = strconv.Atoi(after[i])
 		}
@@ -257,14 +152,14 @@ func main() {
 	}
 
 	// Every opcode should have one index that matches.
-	opFunctions := make(map[int]Op)
+	opFunctions := make(map[int]asm.Op)
 	for k, v := range candidates {
 		for idx := range v {
 			opFunctions[k] = ops[idx]
 		}
 	}
 
-	var r Registers
+	var r asm.Registers
 	for _, i := range instructions {
 		r = opFunctions[i[0]](r, i[1], i[2], i[3])
 	}
