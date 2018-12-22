@@ -76,8 +76,7 @@ func main() {
 			r[ipreg] = 8
 		}
 
-		i := instructions[r[ipreg]]
-		r = i.F(r, i.Operands[0], i.Operands[1], i.Operands[2])
+		instructions[r[ipreg]].Run(&r)
 		r[ipreg]++
 	}
 

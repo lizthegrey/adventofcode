@@ -53,8 +53,7 @@ func main() {
 		r[0] = 1
 	}
 	for r[ipreg] >= 0 && r[ipreg] < len(instructions) {
-		i := instructions[r[ipreg]]
-		r = i.F(r, i.Operands[0], i.Operands[1], i.Operands[2])
+		instructions[r[ipreg]].Run(&r)
 		r[ipreg]++
 	}
 

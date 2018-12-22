@@ -6,6 +6,10 @@ type Instruction struct {
 	Operands [3]int
 }
 
+func (i Instruction) Run(r *Registers) {
+	*r = i.F(*r, i.Operands[0], i.Operands[1], i.Operands[2])
+}
+
 type Op func(Registers, int, int, int) Registers
 
 func Addr(r Registers, operA, operB, targetReg int) Registers {
