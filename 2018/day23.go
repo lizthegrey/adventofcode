@@ -72,7 +72,7 @@ func (d Drone) DistanceToRange(t Coord) int {
 
 type Candidate struct {
 	Loc      Coord
-	Distance int
+	Quality  int
 }
 
 func main() {
@@ -138,7 +138,7 @@ func main() {
 	highScore := 0
 	for len(worklist) > 0 {
 		sort.Slice(worklist, func(i, j int) bool {
-			return worklist[i].Distance > worklist[j].Distance
+			return worklist[i].Quality > worklist[j].Quality
 		})
 
 		c := worklist[0]
@@ -174,7 +174,7 @@ func main() {
 		}
 
 		sort.Slice(candidates, func(i, j int) bool {
-			return candidates[i].Distance < candidates[j].Distance
+			return candidates[i].Quality < candidates[j].Quality
 		})
 
 		for _, c := range candidates {
@@ -215,5 +215,5 @@ func main() {
 	}
 	fmt.Println()
 
-	fmt.Println(lowestCoord.X + lowestCoord.Y + lowestCoord.Z)
+	fmt.Printf("Solution point: %v with sum %d\n", lowestCoord, lowestCoord.X + lowestCoord.Y + lowestCoord.Z)
 }
