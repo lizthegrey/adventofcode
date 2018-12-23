@@ -103,31 +103,44 @@ func main() {
 	}
 
 	highestPower := 0
-	dronesInRange := 0
+	dronesInRangeForHighest := 0
+
+	seeds := make(map[Coord]int)
 	for _, d := range drones {
-		if d.Power > highestPower {
-			highestPower = d.Power
-			dronesInRange = 0
-			for _, t := range drones {
-				if d.InRange(t.Loc) {
-					dronesInRange++
-				}
+		dronesInRange := 0
+		rangeToMe := 0
+		for _, t := range drones {
+			if d.InRange(t.Loc) {
+				dronesInRange++
+			}
+			if t.InRange(d.Loc) {
+				rangeToMe++
 			}
 		}
+		seeds[d.Loc] = rangeToMe
+
+		if d.Power > highestPower {
+			highestPower = d.Power
+			dronesInRangeForHighest = dronesInRange
+		}
 	}
-	fmt.Printf("Highest drones in range of one drone: %d\n", dronesInRange)
+	fmt.Printf("Highest drones in range of one drone: %d\n", dronesInRangeForHighest)
 
 	ranges := make(map[Coord]int)
 	worklist := make([]Candidate, 0)
+
 	// Binary search the space, starting from the list of drone locations,
-	// then creating a midpoint to the 10 closest drones and adding to worklist.
-	for _, d := range drones {
-		worklist = append(worklist, Candidate{d.Loc, 0})
+	// then walking to be in range of each of the N closest drones and adding to worklist.
+	for l, n := range seeds {
+		worklist = append(worklist, Candidate{l, n})
 	}
 
-	highScore := 823
-	//highScore := 0
+	highScore := 0
 	for len(worklist) > 0 {
+		sort.Slice(worklist, func(i, j int) bool {
+			return worklist[i].Distance > worklist[j].Distance
+		})
+
 		c := worklist[0]
 		loc := c.Loc
 		worklist = worklist[1:]
@@ -152,30 +165,21 @@ func main() {
 			candidates = append(candidates, Candidate{mid, dist})
 		}
 
-		if ranges[loc] < highScore {
+		if ranges[loc] < highScore - 2 {
 			// This isn't worth bothering with.
 			continue
-		} else {
+		} else if ranges[loc] > highScore {
+			fmt.Printf("New high score at %v: in range of %d\n", loc, ranges[loc])
 			highScore = ranges[loc]
 		}
-
-		fmt.Printf("Checking location %v: in range of %d\n", loc, ranges[loc])
 
 		sort.Slice(candidates, func(i, j int) bool {
 			return candidates[i].Distance < candidates[j].Distance
 		})
 
-		for i, c := range candidates {
-			if i > 15 {
-				// Don't fork too much initially.
-				break
-			}
+		for _, c := range candidates {
 			worklist = append(worklist, Candidate{c.Loc, ranges[loc] + 1})
-
 		}
-		sort.Slice(worklist, func(i, j int) bool {
-			return worklist[i].Distance > worklist[j].Distance
-		})
 	}
 
 	lowestSum := 9999999999999
@@ -191,47 +195,25 @@ func main() {
 		}
 	}
 
-	for diff := 0; ; diff++ {
-		loc := lowestCoord
-		loc.X -= diff
-		inRange := 0
-		for _, d := range drones {
-			if d.InRange(loc) {
-				inRange++
+	fmt.Printf("Checking if we can get closer on X Y Z: ")
+	for _, v := range []*int{&lowestCoord.X, &lowestCoord.Y, &lowestCoord.Z} {
+		original := *v
+		for diff := 0; ; diff++ {
+			*v--
+			inRange := 0
+			for _, d := range drones {
+				if d.InRange(lowestCoord) {
+					inRange++
+				}
+			}
+			if inRange != highScore {
+			fmt.Printf("%d ", diff)
+				*v = original
+				break
 			}
 		}
-		if inRange != highScore {
-			fmt.Println(diff - 1)
-			break
-		}
 	}
-	for diff := 0; ; diff++ {
-		loc := lowestCoord
-		loc.Y -= diff
-		inRange := 0
-		for _, d := range drones {
-			if d.InRange(loc) {
-				inRange++
-			}
-		}
-		if inRange != highScore {
-			fmt.Println(diff - 1)
-			break
-		}
-	}
-	for diff := 0; ; diff++ {
-		loc := lowestCoord
-		loc.Z -= diff
-		inRange := 0
-		for _, d := range drones {
-			if d.InRange(loc) {
-				inRange++
-			}
-		}
-		if inRange != highScore {
-			fmt.Println(diff - 1)
-			break
-		}
-	}
+	fmt.Println()
+
 	fmt.Println(lowestCoord.X + lowestCoord.Y + lowestCoord.Z)
 }
