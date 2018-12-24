@@ -182,7 +182,7 @@ func main() {
 			// This isn't worth bothering with.
 			continue
 		} else if ranges[loc] > highScore {
-			fmt.Printf("Iteratively guessed %v: in range of %d\n", loc, ranges[loc])
+			fmt.Printf("Jumped to %v (%d in range)\n", loc, ranges[loc])
 			highScore = ranges[loc]
 		}
 
@@ -195,79 +195,74 @@ func main() {
 		}
 	}
 
-	lowestSum := 9999999999999
-	var lowestCoord Coord
+
+	finalists := make([]Coord, 0)
 	for k, v := range ranges {
 		if v != highScore {
 			continue
 		}
-		mySum := k.X + k.Y + k.Z
-		if mySum < lowestSum {
-			lowestSum = mySum
-			lowestCoord = k
-		}
+		fmt.Printf("Added finalist %v (%d in range)\n", k, v)
+		finalists = append(finalists, k)
 	}
 
-	s := lowestCoord
+	champions := make(map[Coord]int)
+	for _, s := range finalists {
+		localHigh := highScore
 
-	improved := true
-	for improved {
-		improved = false
+		fmt.Printf("\nWalking diagonals for finalist %d:\n", s)
 
-		fmt.Printf("\nChecking if we can get closer on X, Y, or Z alone:\n")
 		coords := []*int{&s.X, &s.Y, &s.Z}
-
-		for _, v := range coords {
-			for _, direction := range []int{1,-1} {
-				original := *v
-				for diff := 0; ; diff++ {
-					*v += direction
-					inRange := drones.InRange(s)
-					if inRange < highScore {
-						*v = original
-						break
-					} else if inRange > highScore {
-						improved = true
-						highScore = inRange
-						original = *v
-						fmt.Printf("Reducing along single axis: %v with %d in range\n", s, inRange)
-					}
-				}
-			}
-		}
-		fmt.Println()
-
-		fmt.Println("Checking if we can permute pairs:")
-
 		for i := range coords {
 			first := coords[(i + 1) % 3]
 			second := coords[(i + 2) % 3]
 
-			for _, direction := range []int{1,-1} {
-				oFirst := *first
-				oSecond := *second
+			for _, fdirection := range []int{1,-1} {
+				for _, sdirection := range []int{1,-1} {
+					oFirst := *first
+					oSecond := *second
 
-				for {
-					*first += direction
-					*second -= direction
+					for {
+						*first += fdirection
+						*second += sdirection
 
-					inRange := drones.InRange(s)
+						inRange := drones.InRange(s)
 
-					if inRange < highScore {
-						*first = oFirst
-						*second = oSecond
-						break
-					} else if inRange > highScore {
-						improved = true
-						highScore = inRange
-						oFirst = *first
-						oSecond = *second
-						fmt.Printf("Walked up/down to get: %v with %d in range\n", s, highScore)
+						if inRange < localHigh {
+							*first = oFirst
+							*second = oSecond
+							break
+						} else if inRange > localHigh {
+							localHigh = inRange
+							oFirst = *first
+							oSecond = *second
+							fmt.Printf("Diagonally walked to %v (%d in range)\n", s, localHigh)
+						}
 					}
 				}
 			}
 		}
+		champions[s] = localHigh
 	}
 
-	fmt.Printf("\nSolution point: %v with sum %d\n", s, s.X + s.Y + s.Z)
+	fmt.Println()
+
+	score := 0
+	lowestSum := 9999999999999
+	var solution Coord
+	for k, v := range champions {
+		if v < score {
+			continue
+		} else if v > score {
+			lowestSum = 9999999999999
+		}
+
+		mySum := k.X + k.Y + k.Z
+		if mySum < lowestSum {
+			lowestSum = mySum
+			solution = k
+		}
+		fmt.Printf("Possible solution point: %v with sum %d\n", k, k.X + k.Y + k.Z)
+	}
+
+	fmt.Printf("\nSolution point: %v with sum %d\n", solution, solution.X + solution.Y + solution.Z)
 }
