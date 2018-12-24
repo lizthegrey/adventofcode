@@ -11,6 +11,7 @@ import (
 )
 
 var inputFile = flag.String("inputFile", "inputs/day23.input", "Relative file path to use as input.")
+var verbose = flag.Bool("verbose", false, "Whether to print verbose debug output.")
 
 type Coord struct {
 	X, Y, Z int
@@ -82,10 +83,9 @@ func (drones DroneList) InRange(t Coord) int {
 	return inRange
 }
 
-
 type Candidate struct {
-	Loc      Coord
-	Quality  int
+	Loc     Coord
+	Quality int
 }
 
 func main() {
@@ -178,11 +178,13 @@ func main() {
 			candidates = append(candidates, Candidate{mid, dist})
 		}
 
-		if ranges[loc] < highScore - 2 {
+		if ranges[loc] < highScore-2 {
 			// This isn't worth bothering with.
 			continue
 		} else if ranges[loc] > highScore {
-			fmt.Printf("Jumped to %v (%d in range)\n", loc, ranges[loc])
+			if *verbose {
+				fmt.Printf("Jumped to %v (%d in range)\n", loc, ranges[loc])
+			}
 			highScore = ranges[loc]
 		}
 
@@ -194,7 +196,6 @@ func main() {
 			worklist = append(worklist, Candidate{c.Loc, ranges[loc] + 1})
 		}
 	}
-
 
 	finalists := make([]Coord, 0)
 	for k, v := range ranges {
@@ -213,11 +214,11 @@ func main() {
 
 		coords := []*int{&s.X, &s.Y, &s.Z}
 		for i := range coords {
-			first := coords[(i + 1) % 3]
-			second := coords[(i + 2) % 3]
+			first := coords[(i+1)%3]
+			second := coords[(i+2)%3]
 
-			for _, fdirection := range []int{1,-1} {
-				for _, sdirection := range []int{1,-1} {
+			for _, fdirection := range []int{1, -1} {
+				for _, sdirection := range []int{1, -1} {
 					oFirst := *first
 					oSecond := *second
 
@@ -225,7 +226,13 @@ func main() {
 						*first += fdirection
 						*second += sdirection
 
-						inRange := drones.InRange(s)
+						var inRange int
+						if ranges[s] == 0 {
+							inRange = drones.InRange(s)
+							ranges[s] = inRange
+						} else {
+							inRange = ranges[s]
+						}
 
 						if inRange < localHigh {
 							*first = oFirst
@@ -235,7 +242,9 @@ func main() {
 							localHigh = inRange
 							oFirst = *first
 							oSecond = *second
-							fmt.Printf("Diagonally walked to %v (%d in range)\n", s, localHigh)
+							if *verbose {
+								fmt.Printf("Diagonally walked to %v (%d in range)\n", s, localHigh)
+							}
 						}
 					}
 				}
@@ -254,6 +263,7 @@ func main() {
 			continue
 		} else if v > score {
 			lowestSum = 9999999999999
+			score = v
 		}
 
 		mySum := k.X + k.Y + k.Z
@@ -261,8 +271,8 @@ func main() {
 			lowestSum = mySum
 			solution = k
 		}
-		fmt.Printf("Possible solution point: %v with sum %d\n", k, k.X + k.Y + k.Z)
+		fmt.Printf("Champion: %v (%d in range) with sum %d\n", k, score, k.X+k.Y+k.Z)
 	}
 
-	fmt.Printf("\nSolution point: %v with sum %d\n", solution, solution.X + solution.Y + solution.Z)
+	fmt.Printf("Solution: %v (%d in range) with sum %d\n", solution, score, solution.X+solution.Y+solution.Z)
 }
