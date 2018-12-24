@@ -178,7 +178,7 @@ func main() {
 			candidates = append(candidates, Candidate{mid, dist})
 		}
 
-		if ranges[loc] < highScore-2 {
+		if ranges[loc] < highScore {
 			// This isn't worth bothering with.
 			continue
 		} else if ranges[loc] > highScore {
