@@ -70,6 +70,19 @@ func (d Drone) DistanceToRange(t Coord) int {
 	return d.Loc.Distance(t) - d.Power
 }
 
+type DroneList []Drone
+
+func (drones DroneList) InRange(t Coord) int {
+	inRange := 0
+	for _, d := range drones {
+		if d.InRange(t) {
+			inRange++
+		}
+	}
+	return inRange
+}
+
+
 type Candidate struct {
 	Loc      Coord
 	Quality  int
@@ -83,7 +96,7 @@ func main() {
 	}
 	defer f.Close()
 
-	drones := make([]Drone, 0)
+	drones := make(DroneList, 0)
 
 	r := bufio.NewReader(f)
 	for {
@@ -169,7 +182,7 @@ func main() {
 			// This isn't worth bothering with.
 			continue
 		} else if ranges[loc] > highScore {
-			fmt.Printf("New high score at %v: in range of %d\n", loc, ranges[loc])
+			fmt.Printf("Iteratively guessed %v: in range of %d\n", loc, ranges[loc])
 			highScore = ranges[loc]
 		}
 
@@ -195,25 +208,66 @@ func main() {
 		}
 	}
 
-	fmt.Printf("Checking if we can get closer on X Y Z: ")
-	for _, v := range []*int{&lowestCoord.X, &lowestCoord.Y, &lowestCoord.Z} {
-		original := *v
-		for diff := 0; ; diff++ {
-			*v--
-			inRange := 0
-			for _, d := range drones {
-				if d.InRange(lowestCoord) {
-					inRange++
+	s := lowestCoord
+
+	improved := true
+	for improved {
+		improved = false
+
+		fmt.Printf("\nChecking if we can get closer on X, Y, or Z alone:\n")
+		coords := []*int{&s.X, &s.Y, &s.Z}
+
+		for _, v := range coords {
+			for _, direction := range []int{1,-1} {
+				original := *v
+				for diff := 0; ; diff++ {
+					*v += direction
+					inRange := drones.InRange(s)
+					if inRange < highScore {
+						*v = original
+						break
+					} else if inRange > highScore {
+						improved = true
+						highScore = inRange
+						original = *v
+						fmt.Printf("Reducing along single axis: %v with %d in range\n", s, inRange)
+					}
 				}
 			}
-			if inRange != highScore {
-			fmt.Printf("%d ", diff)
-				*v = original
-				break
+		}
+		fmt.Println()
+
+		fmt.Println("Checking if we can permute pairs:")
+
+		for i := range coords {
+			first := coords[(i + 1) % 3]
+			second := coords[(i + 2) % 3]
+
+			for _, direction := range []int{1,-1} {
+				oFirst := *first
+				oSecond := *second
+
+				for {
+					*first += direction
+					*second -= direction
+
+					inRange := drones.InRange(s)
+
+					if inRange < highScore {
+						*first = oFirst
+						*second = oSecond
+						break
+					} else if inRange > highScore {
+						improved = true
+						highScore = inRange
+						oFirst = *first
+						oSecond = *second
+						fmt.Printf("Walked up/down to get: %v with %d in range\n", s, highScore)
+					}
+				}
 			}
 		}
 	}
-	fmt.Println()
 
-	fmt.Printf("Solution point: %v with sum %d\n", lowestCoord, lowestCoord.X + lowestCoord.Y + lowestCoord.Z)
+	fmt.Printf("\nSolution point: %v with sum %d\n", s, s.X + s.Y + s.Z)
 }
