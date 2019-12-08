@@ -30,7 +30,8 @@ func main() {
 		copy(workingTape, tape)
 		workingTape[1] = 12
 		workingTape[2] = 2
-		fmt.Println(workingTape.Process())
+		val, _ := workingTape.Process(nil)
+		fmt.Println(val)
 	} else {
 		for noun := 0; noun < 100; noun++ {
 			for verb := 0; verb < 100; verb++ {
@@ -38,7 +39,8 @@ func main() {
 				copy(workingTape, tape)
 				workingTape[1] = noun
 				workingTape[2] = verb
-				if workingTape.Process() == expected {
+				val, _ := workingTape.Process(nil)
+				if val == expected {
 					fmt.Printf("Noun = %d, Verb = %d, Result = %d\n", noun, verb, 100*noun+verb)
 					return
 				}

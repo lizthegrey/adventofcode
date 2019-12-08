@@ -7,6 +7,7 @@ import (
 )
 
 var debug = flag.Bool("debug", false, "Print debug info as we go along.")
+var inputValue = flag.Int("inputValue", 0, "The input to the input instruction.")
 
 func main() {
 	flag.Parse()
@@ -22,5 +23,6 @@ func main() {
 		fmt.Println()
 	}
 
-	tape.Process()
+	_, result := tape.Process([]int{*inputValue})
+	fmt.Printf("Result: %d\n", result)
 }

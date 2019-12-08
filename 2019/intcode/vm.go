@@ -9,7 +9,6 @@ import (
 )
 
 var inputFile = flag.String("inputFile", "inputs/day02.input", "Relative file path to use as input.")
-var inputValue = flag.Int("inputValue", 0, "The input to the input instruction.")
 
 type Tape []int
 
@@ -32,16 +31,18 @@ func ReadInput() Tape {
 	return tape
 }
 
-func (t Tape) Process() int {
+func (t Tape) Process(inputs []int) (int, int) {
+	inputOffset := 0
 	offset := 0
+	output := -1
 	for {
 		if offset >= len(t) {
 			fmt.Println("Ran off end of tape.")
-			return -1
+			return -1, -1
 		}
 		instr := t[offset] % 100
 		if instr == 99 {
-			return t[0]
+			return t[0], output
 		}
 		pModes := t[offset] / 100
 		instLen := map[int]int{
@@ -78,10 +79,11 @@ func (t Tape) Process() int {
 			t[dstOffset] = operands[1] * operands[2]
 		case 3:
 			// INPUT
-			t[dstOffset] = *inputValue
+			t[dstOffset] = inputs[inputOffset]
+			inputOffset++
 		case 4:
 			// OUTPUT
-			fmt.Printf("Output %d\n", operands[1])
+			output = operands[1]
 		case 5:
 			// JNZ
 			if operands[1] != 0 {
@@ -112,7 +114,7 @@ func (t Tape) Process() int {
 			}
 		default:
 			fmt.Printf("Failed to match opcode %d.\n", t[offset])
-			return -1
+			return -1, -1
 		}
 		if !jumped {
 			offset += instLen[instr]
