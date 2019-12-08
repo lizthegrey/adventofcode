@@ -23,6 +23,8 @@ func main() {
 		fmt.Println()
 	}
 
-	_, result := tape.Process([]int{*inputValue})
-	fmt.Printf("Result: %d\n", result)
+	input := make(chan int)
+	result, _ := tape.Process(input)
+	input <- *inputValue
+	fmt.Printf("Result: %d\n", <-result)
 }

@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"github.com/lizthegrey/adventofcode/2019/intcode"
+	"sync"
 )
 
 var debug = flag.Bool("debug", false, "Print debug info as we go along.")
@@ -42,7 +43,7 @@ func main() {
 		for i, p := range phases {
 			workingTape := make(intcode.Tape, len(tape))
 			copy(workingTape, tape)
-			input := make(chan int)
+			input := make(chan int, 1)
 			output, done := workingTape.Process(input)
 			input <- p
 			if !*partB || i == 0 {
@@ -61,30 +62,35 @@ func main() {
 		}
 
 		if *partB {
-			f := make(chan bool)
+			var wg sync.WaitGroup
 			for i := range inputs {
+				wg.Add(1)
 				go func(idx int) {
+					defer wg.Done()
 					oIdx := idx - 1
 					if idx == 0 {
 						oIdx = len(inputs) - 1
 					}
-					for {
-						val := <-outputs[oIdx]
+					for val := range outputs[oIdx] {
 						select {
 						case <-dones[idx]:
 							if highestOutput < val {
 								highestOutput = val
 							}
-							f <- true
 							return
 						default:
-							fmt.Printf("Feeding %d from %d to %d\n", val, oIdx, idx)
+							if *debug {
+								fmt.Printf("Feeding %d from %d to %d\n", val, oIdx, idx)
+							}
 							inputs[idx] <- val
 						}
 					}
+					if *debug {
+						fmt.Printf("Finished forwarder from %d to %d\n", oIdx, idx)
+					}
 				}(i)
 			}
-			<-f
+			wg.Wait()
 		}
 	}
 	fmt.Println(highestOutput)
