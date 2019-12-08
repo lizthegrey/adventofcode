@@ -7,6 +7,7 @@ import (
 )
 
 var debug = flag.Bool("debug", false, "Print debug info as we go along.")
+var partB = flag.Bool("partB", false, "Use part B logic.")
 
 func main() {
 	flag.Parse()
@@ -22,21 +23,68 @@ func main() {
 		fmt.Println()
 	}
 
-	phaseList := []int{0, 1, 2, 3, 4}
+	var phaseList []int
+	if !*partB {
+		phaseList = []int{0, 1, 2, 3, 4}
+	} else {
+		phaseList = []int{5, 6, 7, 8, 9}
+	}
 	highestOutput := -1
 	permutations := permute(phaseList)
 	if len(permutations) != 120 {
 		fmt.Printf("Failed to get right permutations: %d\n", len(permutations))
 	}
 	for _, phases := range permutations {
-		input := 0
-		for _, p := range phases {
+		inputVal := 0
+		inputs := make([]chan int, len(phases))
+		outputs := make([]chan int, len(phases))
+		dones := make([]chan bool, len(phases))
+		for i, p := range phases {
 			workingTape := make(intcode.Tape, len(tape))
 			copy(workingTape, tape)
-			_, input = workingTape.Process([]int{p, input})
+			input := make(chan int)
+			output, done := workingTape.Process(input)
+			input <- p
+			if !*partB || i == 0 {
+				input <- inputVal
+			}
+			if !*partB {
+				inputVal = <-output
+			} else {
+				inputs[i] = input
+				outputs[i] = output
+				dones[i] = done
+			}
 		}
-		if input > highestOutput {
-			highestOutput = input
+		if !*partB && (inputVal > highestOutput) {
+			highestOutput = inputVal
+		}
+
+		if *partB {
+			f := make(chan bool)
+			for i := range inputs {
+				go func(idx int) {
+					oIdx := idx - 1
+					if idx == 0 {
+						oIdx = len(inputs) - 1
+					}
+					for {
+						val := <-outputs[oIdx]
+						select {
+						case <-dones[idx]:
+							if highestOutput < val {
+								highestOutput = val
+							}
+							f <- true
+							return
+						default:
+							fmt.Printf("Feeding %d from %d to %d\n", val, oIdx, idx)
+							inputs[idx] <- val
+						}
+					}
+				}(i)
+			}
+			<-f
 		}
 	}
 	fmt.Println(highestOutput)
