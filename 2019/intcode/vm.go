@@ -1,25 +1,22 @@
 package intcode
 
 import (
-	"flag"
 	"fmt"
 	"io/ioutil"
 	"strconv"
 	"strings"
 )
 
-var inputFile = flag.String("inputFile", "inputs/day02.input", "Relative file path to use as input.")
+type Tape map[int]int
 
-type Tape []int
-
-func ReadInput() Tape {
-	bytes, err := ioutil.ReadFile(*inputFile)
+func ReadInput(file string) Tape {
+	bytes, err := ioutil.ReadFile(file)
 	if err != nil {
 		return nil
 	}
 	contents := string(bytes[:len(bytes)-1])
 	split := strings.Split(contents, ",")
-	tape := make([]int, len(split))
+	tape := make(Tape)
 	for i, s := range split {
 		n, err := strconv.Atoi(s)
 		if err != nil {
@@ -31,18 +28,21 @@ func ReadInput() Tape {
 	return tape
 }
 
+func (t Tape) Copy() Tape {
+	c := make(Tape)
+	for k, v := range t {
+		c[k] = v
+	}
+	return c
+}
+
 func (t Tape) Process(inputs chan int) (chan int, chan bool) {
 	offset := 0
 	output := make(chan int)
 	done := make(chan bool, 1)
+	base := 0
 	go func() {
 		for {
-			if offset >= len(t) {
-				fmt.Println("Ran off end of tape.")
-				done <- true
-				close(output)
-				return
-			}
 			instr := t[offset] % 100
 			if instr == 99 {
 				done <- true
@@ -59,21 +59,28 @@ func (t Tape) Process(inputs chan int) (chan int, chan bool) {
 				6: 3,
 				7: 4,
 				8: 4,
+				9: 2,
 			}
 
 			operands := make([]int, instLen[instr])
+			dstOffset := t[offset+instLen[instr]-1]
 			for i := 1; i < len(operands); i++ {
 				value := t[offset+i]
-				if pModes%10 == 0 {
+				switch pModes % 10 {
+				case 0:
 					// position mode
 					operands[i] = t[value]
-				} else {
+				case 1:
 					// literal mode
 					operands[i] = value
+				case 2:
+					operands[i] = t[base+value]
+					if i == len(operands)-1 {
+						dstOffset += base
+					}
 				}
 				pModes /= 10
 			}
-			dstOffset := t[offset+instLen[instr]-1]
 			jumped := false
 			switch instr {
 			case 1:
@@ -116,6 +123,8 @@ func (t Tape) Process(inputs chan int) (chan int, chan bool) {
 				} else {
 					t[dstOffset] = 0
 				}
+			case 9:
+				base += operands[1]
 			default:
 				fmt.Printf("Failed to match opcode %d.\n", t[offset])
 				done <- true

@@ -7,21 +7,16 @@ import (
 	"sync"
 )
 
+var inputFile = flag.String("inputFile", "inputs/day07.input", "Relative file path to use as input.")
 var debug = flag.Bool("debug", false, "Print debug info as we go along.")
 var partB = flag.Bool("partB", false, "Use part B logic.")
 
 func main() {
 	flag.Parse()
-	tape := intcode.ReadInput()
+	tape := intcode.ReadInput(*inputFile)
 	if tape == nil {
 		fmt.Println("Failed to parse input.")
 		return
-	}
-	if *debug {
-		for _, n := range tape {
-			fmt.Printf("%d,", n)
-		}
-		fmt.Println()
 	}
 
 	var phaseList []int
@@ -41,8 +36,7 @@ func main() {
 		outputs := make([]chan int, len(phases))
 		dones := make([]chan bool, len(phases))
 		for i, p := range phases {
-			workingTape := make(intcode.Tape, len(tape))
-			copy(workingTape, tape)
+			workingTape := tape.Copy()
 			input := make(chan int, 1)
 			output, done := workingTape.Process(input)
 			input <- p
