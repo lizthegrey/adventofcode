@@ -74,7 +74,7 @@ func main() {
 	}
 	fmt.Printf("%d asteroids visible from %d, %d\n", mostVisible, station.Col, station.Row)
 
-	// Vaporize 200 asteroids.
+	// Vaporize some asteroids.
 	asteroidsByTheta := make(map[Coord][]Coord)
 	thetas := make([]Coord, 0)
 
@@ -105,7 +105,7 @@ func main() {
 			break
 		}
 	}
-	for i := 0; i < *iterations; i++ {
+	for i := 1; i <= *iterations && i < len(asteroids); i++ {
 		for {
 			if thetaIndex >= len(thetas) {
 				thetaIndex = 0
@@ -117,8 +117,8 @@ func main() {
 		}
 		destroyed := asteroidsByTheta[thetas[thetaIndex]][0]
 		asteroidsByTheta[thetas[thetaIndex]] = asteroidsByTheta[thetas[thetaIndex]][1:]
-		if *debug || i+1 == *iterations {
-			fmt.Printf("Firing at theta %f, destroyed %d,%d\n", thetas[thetaIndex].Theta(), destroyed.Col, destroyed.Row)
+		if *debug || i == *iterations || i+1 == len(asteroids) {
+			fmt.Printf("#%d: firing at theta %f, destroyed %d,%d\n", i, thetas[thetaIndex].Theta(), destroyed.Col, destroyed.Row)
 		}
 		thetaIndex++
 	}
