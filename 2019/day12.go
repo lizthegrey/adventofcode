@@ -10,79 +10,56 @@ import (
 )
 
 var inputFile = flag.String("inputFile", "inputs/day12.input", "Relative file path to use as input.")
-var steps = flag.Int("steps", 1000, "Number of steps to simulate for.")
+var steps = flag.Int("steps", 1000, "Number of steps to simulate before reporting energy.")
 
-type Coord3 struct {
-	X, Y, Z int32
+type Axis struct {
+	Pos, Vel int32
 }
 
-type Moon struct {
-	Pos, Vel *Coord3
-}
+type Moon [3]*Axis
 
-func (m *Moon) TickVel(i int, ms Moons) int {
+func (m *Moon) TickVel(i int, ms Moons) {
 	// Avoid double counting or ticking against self.
-	safe := int(math.MaxInt32)
 	for j, o := range ms {
 		if j >= i {
 			break
 		}
-		xDelta := m.Pos.X - o.Pos.X
-		yDelta := m.Pos.Y - o.Pos.Y
-		zDelta := m.Pos.Z - o.Pos.Z
-		xRVel := m.Vel.X - o.Vel.X
-		yRVel := m.Vel.Y - o.Vel.Y
-		zRVel := m.Vel.Z - o.Vel.Z
-		if xDelta/xRVel < safe {
-			safe = xDelta / xRVel
-		}
-		if yDelta/yRVel < safe {
-			safe = yDelta / yRVel
-		}
-		if zDelta/yRVel < safe {
-			safe = zDelta / yRVel
-		}
-
-		if m.Pos.X < o.Pos.X {
-			m.Vel.X++
-			o.Vel.X--
-		} else if m.Pos.X > o.Pos.X {
-			m.Vel.X--
-			o.Vel.X++
-		}
-		if m.Pos.Y < o.Pos.Y {
-			m.Vel.Y++
-			o.Vel.Y--
-		} else if m.Pos.Y > o.Pos.Y {
-			m.Vel.Y--
-			o.Vel.Y++
-		}
-		if m.Pos.Z < o.Pos.Z {
-			m.Vel.Z++
-			o.Vel.Z--
-		} else if m.Pos.Z > o.Pos.Z {
-			m.Vel.Z--
-			o.Vel.Z++
+		for k, a := range m {
+			oa := o[k]
+			if a.Pos < oa.Pos {
+				a.Vel++
+				oa.Vel--
+			} else if a.Pos > oa.Pos {
+				a.Vel--
+				oa.Vel++
+			}
 		}
 	}
-	return int(safe)
 }
 
 func (m *Moon) TickPos() {
-	m.Pos.X += m.Vel.X
-	m.Pos.Y += m.Vel.Y
-	m.Pos.Z += m.Vel.Z
+	for _, a := range m {
+		a.Pos += a.Vel
+	}
 }
 
 func (m Moon) Kinetic() float64 {
-	return math.Abs(float64(m.Vel.X)) + math.Abs(float64(m.Vel.Y)) + math.Abs(float64(m.Vel.Z))
+	var ret float64
+	for _, a := range m {
+		ret += math.Abs(float64(a.Vel))
+	}
+	return ret
 }
 
 func (m Moon) Potential() float64 {
-	return math.Abs(float64(m.Pos.X)) + math.Abs(float64(m.Pos.Y)) + math.Abs(float64(m.Pos.Z))
+	var ret float64
+	for _, a := range m {
+		ret += math.Abs(float64(a.Pos))
+	}
+	return ret
 }
 
-type Moons []*Moon
+type Moons []Moon
 
 func (ms Moons) TickOne() {
 	for i, m := range ms {
@@ -91,20 +68,6 @@ func (ms Moons) TickOne() {
 	for _, m := range ms {
 		m.TickPos()
 	}
-}
-
-func (ms Moons) TickMany() int {
-	maxSafe := int(math.MaxInt32)
-	for i, m := range ms {
-		safe := m.TickVel(i, ms)
-		if safe < maxSafe {
-			maxSafe = safe
-		}
-	}
-	for _, m := range ms {
-		m.TickPos()
-	}
-	return 1
 }
 
 func main() {
@@ -117,39 +80,34 @@ func main() {
 	split := strings.Split(contents, "\n")
 	moons := make(Moons, 0)
 	for _, s := range split {
-		var pos, vel Coord3
-		obj := Moon{&pos, &vel}
 		if s == "" {
 			continue
 		}
 		// <x=-4, y=3, z=15>
 		coords := strings.Split(s[1:len(s)-1], ", ")
-		if x, err := strconv.Atoi(coords[0][2:]); err != nil {
-			fmt.Printf("Failed to parse line: %s\n", s)
-		} else {
-			obj.Pos.X = int32(x)
+		var obj Moon
+		for i, v := range coords {
+			if pos, err := strconv.Atoi(v[2:]); err != nil {
+				fmt.Printf("Failed to parse line: %s\n", s)
+			} else {
+				axis := Axis{int32(pos), 0}
+				obj[i] = &axis
+			}
 		}
-		if y, err := strconv.Atoi(coords[1][2:]); err != nil {
-			fmt.Printf("Failed to parse line: %s\n", s)
-		} else {
-			obj.Pos.Y = int32(y)
-		}
-		if z, err := strconv.Atoi(coords[2][2:]); err != nil {
-			fmt.Printf("Failed to parse line: %s\n", s)
-		} else {
-			obj.Pos.Z = int32(z)
-		}
-		moons = append(moons, &obj)
+		moons = append(moons, obj)
 	}
 
 	moonCopy := make(Moons, len(moons))
 	for i, m := range moons {
-		pos := *m.Pos
-		vel := *m.Vel
-		moonCopy[i] = &Moon{&pos, &vel}
+		var cpy Moon
+		for j, a := range m {
+			axisCpy := *a
+			cpy[j] = &axisCpy
+		}
+		moonCopy[i] = cpy
 	}
 
-	for i := 0; i < *steps; i++ {
+	for t := 0; t < *steps; t++ {
 		moonCopy.TickOne()
 	}
 	var energy float64
@@ -158,23 +116,68 @@ func main() {
 	}
 	fmt.Println(int(energy))
 
-	s := 0
-	for {
-		if s%10000000 == 0 {
-			fmt.Printf("Iteration %d\n", s)
+	// Part B
+	origMoons := make(Moons, len(moons))
+	for i, m := range moons {
+		var cpy Moon
+		for j, a := range m {
+			axisCpy := *a
+			cpy[j] = &axisCpy
 		}
+		origMoons[i] = cpy
+	}
 
-		var zero Coord3
-		zeroVel := true
-		for _, m := range moons {
-			if *m.Vel != zero {
-				zeroVel = false
+	var repeatCycle [3]int
+	for t := 1; ; t++ {
+		moons.TickOne()
+		var notRepeat [3]bool
+		for i, m := range moons {
+			for j, a := range m {
+				if *a != *origMoons[i][j] {
+					notRepeat[j] = true
+				}
 			}
 		}
-		if zeroVel && s != 0 {
-			fmt.Printf("Back to 0 velocity and collapsing back on self at %d, solution is %d\n", s, 2*s)
+		for j, nRep := range notRepeat {
+			if !nRep && repeatCycle[j] == 0 {
+				repeatCycle[j] = t
+			}
+		}
+		product := 1
+		for _, v := range repeatCycle {
+			product *= v
+		}
+		if product != 0 {
+			// We need to compute the LCM of the three values.
+			r := repeatCycle
+			result := r[0] * r[1] / gcd(r[0], r[1])
+			result = result * r[2] / gcd(result, r[2])
+			fmt.Println(result)
 			return
 		}
-		s += moons.TickMany()
 	}
+}
+
+func gcd(r, c int) int {
+	var greater int
+	var lesser int
+	if r > c {
+		greater = int(math.Abs(float64(r)))
+		lesser = int(math.Abs(float64(c)))
+	} else if r <= c {
+		greater = int(math.Abs(float64(c)))
+		lesser = int(math.Abs(float64(r)))
+	}
+
+	gcd := 1
+	for {
+		remainder := greater % lesser
+		if remainder == 0 {
+			gcd = lesser
+			break
+		}
+		greater = lesser
+		lesser = remainder
+	}
+	return gcd
 }
