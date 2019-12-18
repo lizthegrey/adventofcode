@@ -32,15 +32,15 @@ func main() {
 	view := make(map[Coord]bool)
 
 	bytes := make([]byte, 0)
-	r := 0
-	c := 0
+	row := 0
+	col := 0
 	for n := range output {
 		bytes = append(bytes, byte(n))
-		loc := Coord{c, r}
+		loc := Coord{col, row}
 		switch rune(n) {
 		case '\n':
-			r++
-			c = 0
+			row++
+			col = 0
 			continue
 		case 'X':
 			// Robot is tumbling.
@@ -69,7 +69,7 @@ func main() {
 		default:
 			fmt.Printf("Unrecognized character %v\n", n)
 		}
-		c++
+		col++
 	}
 	fmt.Println()
 	fmt.Println()
@@ -131,27 +131,70 @@ func main() {
 	}
 
 	dirs := string(directions)
-	fmt.Println(dirs)
+	fmt.Println(fold(dirs))
 
+	var p, a, b, c string
+
+outer:
 	for sMax := 5; sMax < len(dirs)-1; sMax++ {
 		for tMin := 5; tMin < len(dirs)-1-sMax; tMin++ {
 			start := string(directions[0:sMax])
 			tail := string(directions[len(dirs)-tMin : len(dirs)])
 			repl := strings.Replace(dirs, start, "A", 10)
 			repl = strings.Replace(repl, tail, "C", 10)
-			if len(repl) > 70 || len(start) > 100 || len(tail) > 100 {
+			var m []rune
+			for _, v := range repl {
+				if v == 'A' {
+					continue
+				} else if v == 'C' {
+					break
+				}
+				m = append(m, v)
+			}
+			middle := string(m)
+			rest := strings.Replace(repl, middle, "B", 10)
+
+			a = fold(start)
+			b = fold(middle)
+			c = fold(tail)
+			p = fold(rest)
+			if len(p) > 20 || len(a) > 20 || len(b) > 20 || len(c) > 20 {
 				continue
 			}
-			fmt.Printf("%s, %s: %s\n", fold(start), fold(tail), fold(repl))
+			fmt.Printf("A=%s\nB=%s\nC=%s\nP=%s\n", a, b, c, p)
+			break outer
 		}
 	}
 
 	// Then chomp off substring combinations that work.
 	// Then feed it to the machine.
-
 	input := make(chan int, 1)
 	tape[0] = 2
-	output, _ = tape.Process(input)
+	output, done := tape.Process(input)
+
+	go func() {
+		for o := range output {
+			if o > 255 {
+				fmt.Printf("Final answer: %d\n", o)
+			} else {
+				fmt.Printf("%c", o)
+			}
+		}
+	}()
+
+	for _, in := range []string{p, a, b, c} {
+		for _, v := range in {
+			input <- int(v)
+		}
+		fmt.Println(in)
+		input <- int('\n')
+	}
+
+	input <- int('n')
+	fmt.Println("n")
+	input <- int('\n')
+
+	<-done
 }
 
 func fold(s string) string {
@@ -162,8 +205,9 @@ func fold(s string) string {
 		if d != last {
 			if last == '1' {
 				output = append(output, strconv.Itoa(count)...)
-			} else {
-				output = append(output, byte(last))
+				output = append(output, byte(','))
+			} else if last != rune(0) {
+				output = append(output, byte(last), byte(','))
 			}
 			count = 1
 			last = d
