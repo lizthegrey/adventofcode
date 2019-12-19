@@ -10,14 +10,15 @@ import (
 )
 
 var inputFile = flag.String("inputFile", "inputs/day18.input", "Relative file path to use as input.")
+var partB = flag.Bool("partB", false, "Whether to use the Part B logic.")
 
 type CacheKey struct {
-	Player        Coord
+	Player        [4]Coord
 	KeysCollected [26]bool
 }
 
 type State struct {
-	Player      Coord
+	Player      [4]Coord
 	MovesToDate int
 	// Note: this is in order.
 	KeyCount             int
@@ -53,7 +54,8 @@ func main() {
 	contents := string(bytes)
 	split := strings.Split(contents, "\n")
 
-	var player Coord
+	var center Coord
+	var player [4]Coord
 	passable := make(map[Coord]bool)
 	keys := make(map[Coord]int)
 	var keyList [26]Coord
@@ -68,7 +70,7 @@ func main() {
 			case '#':
 				passable[loc] = false
 			case '@':
-				player = loc
+				center = loc
 				fallthrough
 			case '.':
 				passable[loc] = true
@@ -82,6 +84,20 @@ func main() {
 				passable[loc] = true
 			}
 		}
+	}
+
+	if !*partB {
+		player[0] = center
+	} else {
+		passable[center] = false
+		passable[Coord{center.X + 1, center.Y}] = false
+		passable[Coord{center.X - 1, center.Y}] = false
+		passable[Coord{center.X, center.Y + 1}] = false
+		passable[Coord{center.X, center.Y - 1}] = false
+		player[0] = Coord{center.X + 1, center.Y + 1}
+		player[1] = Coord{center.X - 1, center.Y + 1}
+		player[2] = Coord{center.X - 1, center.Y - 1}
+		player[3] = Coord{center.X + 1, center.Y - 1}
 	}
 
 	// Determine which keys are reachable based off current unlocks.
@@ -127,14 +143,19 @@ func main() {
 			}
 			// calculate whether the key is reachable based on what's reachable so far.
 			// treat the key we're not looking for as impassable to avoid accounting errors.
-			moves := bfs(state.Player, keyList[i], passable, state.KeysCollected, keys, doors)
+			quad := 0
+			if *partB {
+				quad = quadrant(center, keyList[i])
+			}
+			start := state.Player[quad]
+			moves := bfs(start, keyList[i], passable, state.KeysCollected, keys, doors)
 			if moves < 0 {
 				// Not reachable.
 				continue
 			}
 
 			newState := state
-			newState.Player = keyList[i]
+			newState.Player[quad] = keyList[i]
 			newState.KeysCollectedInOrder[state.KeyCount] = i
 			newState.KeysCollected[i] = true
 			newState.MovesToDate += moves
@@ -162,6 +183,26 @@ func main() {
 		unexplored = unexplored[1:]
 	}
 	fmt.Printf("Shortest path is %d long.\n", shortest)
+}
+
+func quadrant(c, k Coord) int {
+	// player[0] = Coord{center.X + 1, center.Y + 1}
+	// player[1] = Coord{center.X - 1, center.Y + 1}
+	// player[2] = Coord{center.X - 1, center.Y - 1}
+	// player[3] = Coord{center.X + 1, center.Y - 1}
+	if c.X < k.X {
+		if c.Y < k.Y {
+			return 0
+		} else {
+			return 3
+		}
+	} else {
+		if c.Y < k.Y {
+			return 1
+		} else {
+			return 2
+		}
+	}
 }
 
 type AStarItem struct {
