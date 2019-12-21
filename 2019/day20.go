@@ -9,6 +9,7 @@ import (
 )
 
 var inputFile = flag.String("inputFile", "inputs/day20.input", "Relative file path to use as input.")
+var partB = flag.Bool("partB", false, "Whether to use the Part B logic.")
 
 type State struct {
 	Player      Coord
@@ -16,7 +17,11 @@ type State struct {
 }
 
 type Coord struct {
-	X, Y int
+	X, Y, Z int
+}
+
+func (c Coord) NoZ() Coord {
+	return Coord{c.X, c.Y, 0}
 }
 
 func (c Coord) Move(dir int, portals map[Coord]Coord) Coord {
@@ -31,8 +36,17 @@ func (c Coord) Move(dir int, portals map[Coord]Coord) Coord {
 	case 4:
 		ret.X++
 	}
-	if jump, ok := portals[ret]; ok {
-		return jump
+	if jump, ok := portals[ret.NoZ()]; ok {
+		if *partB {
+			if c.Z == 0 && jump.Z == -1 {
+				// Don't portal because we're passing through an outer portal on level 0.
+				return ret
+			}
+			ret = jump
+			ret.Z = c.Z + jump.Z
+		} else {
+			return jump
+		}
 	}
 	return ret
 }
@@ -49,12 +63,16 @@ func main() {
 	passable := make(map[Coord]bool)
 	portals := make(map[Coord]Coord)
 	letters := make(map[Coord]rune)
+
+	maxY := len(split) - 2
+	maxX := len(split[0]) - 1
+
 	for y, s := range split {
 		if s == "" {
 			continue
 		}
 		for x, c := range s {
-			loc := Coord{x, y}
+			loc := Coord{x, y, 0}
 			switch c {
 			case '.':
 				passable[loc] = true
@@ -78,13 +96,22 @@ func main() {
 		// In that case, we'll find it on the other iteration.
 
 		// Check whether we have a letter next to us (URDL)
-		if _, ok := letters[Coord{l.X, l.Y - 1}]; ok {
+		if _, ok := letters[Coord{l.X, l.Y - 1, 0}]; ok {
 			// Check up.
 			continue
 		}
-		if _, ok := letters[Coord{l.X - 1, l.Y}]; ok {
+		if _, ok := letters[Coord{l.X - 1, l.Y, 0}]; ok {
 			// Check left.
 			continue
+		}
+
+		dstArrivalZOffset := 0
+		if *partB {
+			if l.X <= 1 || l.X >= maxX-1 || l.Y <= 1 || l.Y >= maxY-1 {
+				dstArrivalZOffset = 1
+			} else {
+				dstArrivalZOffset = -1
+			}
 		}
 
 		// If so, check which side is a passable . character.
@@ -92,14 +119,14 @@ func main() {
 		var pair [2]rune
 		var destination, source Coord
 		pair[0] = c
-		if o, ok := letters[Coord{l.X, l.Y + 1}]; ok {
+		if o, ok := letters[Coord{l.X, l.Y + 1, 0}]; ok {
 			// Use the character below as the second of the identifier.
 			pair[1] = o
 			// Then check whether the portal end is below or above.
-			downSpace := Coord{l.X, l.Y + 2}
-			upSpace := Coord{l.X, l.Y - 1}
+			downSpace := Coord{l.X, l.Y + 2, 0}
+			upSpace := Coord{l.X, l.Y - 1, 0}
 			if passable[downSpace] {
-				source = Coord{l.X, l.Y + 1}
+				source = Coord{l.X, l.Y + 1, 0}
 				destination = downSpace
 			} else if passable[upSpace] {
 				source = l
@@ -107,14 +134,14 @@ func main() {
 			} else {
 				fmt.Printf("Failed to parse grid correctly at %d,%d\n", l.X, l.Y)
 			}
-		} else if o, ok := letters[Coord{l.X + 1, l.Y}]; ok {
+		} else if o, ok := letters[Coord{l.X + 1, l.Y, 0}]; ok {
 			// Use the character at right as the second of the identifier.
 			pair[1] = o
 			// Then check whether the portal end is right or left.
-			rightSpace := Coord{l.X + 2, l.Y}
-			leftSpace := Coord{l.X - 1, l.Y}
+			rightSpace := Coord{l.X + 2, l.Y, 0}
+			leftSpace := Coord{l.X - 1, l.Y, 0}
 			if passable[rightSpace] {
-				source = Coord{l.X + 1, l.Y}
+				source = Coord{l.X + 1, l.Y, 0}
 				destination = rightSpace
 			} else if passable[leftSpace] {
 				source = l
@@ -126,21 +153,19 @@ func main() {
 			fmt.Printf("Failed to parse grid correctly at %d,%d\n", l.X, l.Y)
 		}
 
+		destination.Z = dstArrivalZOffset
+
 		// Create a dangling pair, or connect the pairs.
 		if opposite, ok := entrances[pair]; ok {
 			portals[source] = opposite[0]
 			portals[opposite[1]] = destination
-			delete(entrances, pair)
 		} else {
 			entrances[pair] = [2]Coord{destination, source}
 		}
 	}
 
-	if len(entrances) != 2 {
-		fmt.Printf("Failed to pair at least some portals: %v\n", portals)
-	}
-	start := entrances[[2]rune{'A', 'A'}][0]
-	end := entrances[[2]rune{'Z', 'Z'}][0]
+	start := entrances[[2]rune{'A', 'A'}][0].NoZ()
+	end := entrances[[2]rune{'Z', 'Z'}][0].NoZ()
 
 	shortest := bfs(start, end, passable, portals)
 	fmt.Printf("Shortest path is %d long.\n", shortest)
@@ -164,6 +189,12 @@ func (c Coord) Distance(o Coord) int {
 	} else {
 		sum += c.Y - o.Y
 	}
+
+	if c.Z < o.Z {
+		sum += o.Z - c.Z
+	} else {
+		sum += c.Z - o.Z
+	}
 	return sum
 }
 
@@ -172,7 +203,7 @@ func minDistanceToPortalOrEnd(src, dst Coord, portals map[Coord]Coord) int {
 	for in := range portals {
 		// TODO: can be improved by taking into account closeness of portal exits to
 		// other portal entrances and/or to the finish.
-		d := src.Distance(in) + 1
+		d := src.NoZ().Distance(in) + src.Z + 1
 		if d < minDistance {
 			minDistance = d
 		}
@@ -193,7 +224,7 @@ func bfs(src, dst Coord, passable map[Coord]bool, portals map[Coord]Coord) int {
 		w := worklist[0].C
 		for dir := 1; dir <= 4; dir++ {
 			moved := w.Move(dir, portals)
-			if !passable[moved] {
+			if !passable[moved.NoZ()] {
 				// Don't check impassable tiles.
 				continue
 			}
