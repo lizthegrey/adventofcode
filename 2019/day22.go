@@ -145,41 +145,16 @@ func main() {
 	// Find the value of the card at position 2020 after 101741582076661 runs
 	// on a deck of length 119315717514047.
 	// This means we need to reverse the process for one run.
-	// Then reverse the reversal.
-	// Until we get a repeat and we know we've cycled.
-
-	// Cycle tracking: track the number of reverse cycles it took to wind up
-	// in this position.
-	positionsSeen := map[int64]int{
-		int64(2020): 0,
-	}
+	// Then reverse the reversal and so forth until we identify a pattern.
 	currentPos := int64(2020)
 	iCache := make(map[int64]int64)
 
-	var o, cycleLength int
-	for i := 1; ; i++ {
-		if i%1000000 == 0 {
-			fmt.Printf("Tested %d reverse cycles.\n", i)
-		}
-		newPos := reverse(currentPos, int64(119315717514047), ops, iCache)
-		if o, ok := positionsSeen[newPos]; ok {
-			cycleLength = i - o
-			fmt.Printf("Repeat found between cycles %d and %d (cycle length %d).\n", o, i, cycleLength)
-			break
-		}
-		positionsSeen[newPos] = i
-		currentPos = newPos
+	fmt.Printf("Feed these values into Mathematica: 2020,")
+	for i := 1; i <= 3; i++ {
+		currentPos = reverse(currentPos, int64(119315717514047), ops, iCache)
+		fmt.Printf("%d,", currentPos)
 	}
-	totalCycles := int64(101741582076661)
-	// Once we find our first repeat, then we take total cycles minus the start index.
-	// and we take the modulus.
-	adjusted := (totalCycles - int64(o)) % int64(cycleLength)
-	adjusted += int64(o)
-	for k, v := range positionsSeen {
-		if int64(v) == adjusted {
-			fmt.Println(k)
-		}
-	}
+	fmt.Println()
 }
 
 func reverse(pos, deckSize int64, ops []Operation, iCache map[int64]int64) int64 {
