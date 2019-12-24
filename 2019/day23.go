@@ -70,38 +70,28 @@ func main() {
 		}(i)
 	}
 
-	time.Sleep(1000 * time.Millisecond)
 	go func() {
 		var last Packet
 		for {
+			time.Sleep(20 * time.Millisecond)
 			idle := true
-			total := 0
 			for i, bl := range blocked {
 				if !*bl || len(inputs[i]) != 0 {
 					idle = false
 					break
 				}
-				total++
 			}
 			if idle {
 				fmt.Printf("Detected idle, sending %d,%d to 0\n", nat.X, nat.Y)
-				if last == nat {
-					// Don't actually send a repeat packet.
-					fmt.Println("Skipping sending repeat packet.")
-					continue
-				}
 				if last.Y == nat.Y {
 					fmt.Printf("Saw repeated Y: %d\n", last.Y)
-					<-done
+					done <- true
 					return
 				} else {
 					last = nat
 				}
 				inputs[0] <- nat.X
 				inputs[0] <- nat.Y
-				fmt.Printf("Successfully sent values to 0. new queue length is %d\n", len(inputs[0]))
-				time.Sleep(100 * time.Millisecond)
-				fmt.Printf("Queue length on 0 is %d\n", len(inputs[0]))
 			}
 		}
 	}()
