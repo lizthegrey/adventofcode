@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type Tape map[int]int
@@ -37,10 +38,25 @@ func (t Tape) Copy() Tape {
 }
 
 func (t Tape) Process(inputs chan int) (chan int, chan bool) {
+	output, done, _ := t.ProcessInternal(inputs, true, -1)
+	return output, done
+}
+
+func (t Tape) ProcessNonBlocking(inputs chan int, tid int) (chan int, chan bool, *bool) {
+	return t.ProcessInternal(inputs, false, tid)
+}
+
+func (t Tape) ProcessInternal(inputs chan int, blocking bool, tid int) (chan int, chan bool, *bool) {
 	offset := 0
-	output := make(chan int)
+	var output chan int
+	if blocking {
+		output = make(chan int)
+	} else {
+		output = make(chan int, 500)
+	}
 	done := make(chan bool, 1)
 	base := 0
+	awaitingInput := false
 	go func() {
 		for {
 			instr := t[offset] % 100
@@ -48,6 +64,9 @@ func (t Tape) Process(inputs chan int) (chan int, chan bool) {
 				done <- true
 				close(output)
 				return
+			}
+			if tid >= 0 {
+				fmt.Printf("Trace %d: executing %d at ip %d\n", tid, instr, offset)
 			}
 			pModes := t[offset] / 100
 			instLen := map[int]int{
@@ -91,7 +110,24 @@ func (t Tape) Process(inputs chan int) (chan int, chan bool) {
 				t[dstOffset] = operands[1] * operands[2]
 			case 3:
 				// INPUT
-				t[dstOffset] = <-inputs
+				ret := -1
+				if blocking {
+					ret = <-inputs
+				} else {
+					select {
+					case ret = <-inputs:
+						// We've successfully read our input channel.
+						awaitingInput = false
+						if tid >= 0 {
+							fmt.Printf("[%d] Received value %d\n", tid, ret)
+						}
+					default:
+						// Use default value set above.
+						time.Sleep(time.Millisecond)
+						awaitingInput = true
+					}
+				}
+				t[dstOffset] = ret
 			case 4:
 				// OUTPUT
 				output <- operands[1]
@@ -136,5 +172,5 @@ func (t Tape) Process(inputs chan int) (chan int, chan bool) {
 			}
 		}
 	}()
-	return output, done
+	return output, done, &awaitingInput
 }

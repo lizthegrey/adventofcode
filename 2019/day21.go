@@ -26,6 +26,7 @@ func main() {
 		for l := range output {
 			if l > 255 {
 				fmt.Println(l)
+				return
 			}
 			fmt.Printf("%c", l)
 		}
@@ -59,6 +60,7 @@ func main() {
 		for l := range output {
 			if l > 255 {
 				fmt.Println(l)
+				return
 			}
 			fmt.Printf("%c", l)
 		}
