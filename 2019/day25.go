@@ -6,11 +6,13 @@ import (
 	"fmt"
 	"github.com/lizthegrey/adventofcode/2019/intcode"
 	"os"
+	"sort"
 	"strings"
 	"sync"
 )
 
 var inputFile = flag.String("inputFile", "inputs/day25.input", "Relative file path to use as input.")
+var debug = flag.Bool("debug", true, "Whether to print debug output.")
 
 var disallow = []string{
 	"giant electromagnet",
@@ -60,46 +62,61 @@ func main() {
 		return
 	}
 
+	inputs := 0
+
 	input := make(chan int, 1)
 	output, done := tape.Process(input)
 	lines := make(chan string, 50)
 	driver := make(chan string)
+	reallyFinished := make(chan bool)
 
 	go func() {
 		line := make([]byte, 0)
 		for c := range output {
-			if c > 255 {
-				fmt.Println(c)
-				return
+			if *debug {
+				fmt.Printf("%c", c)
 			}
-			fmt.Printf("%c", c)
 
 			if c == '\n' {
+				if len(line) > 0 && line[0] == '"' {
+					fmt.Println(string(line))
+					fmt.Printf("Completed with %d inputs.\n", inputs)
+					break
+				}
 				lines <- string(line)
 				line = make([]byte, 0)
 			} else {
 				line = append(line, byte(c))
 			}
 		}
-		fmt.Println()
+		if *debug {
+			fmt.Println()
+		}
+		<-done
+		reallyFinished <- true
 	}()
 
-	go func() {
-		reader := bufio.NewReader(os.Stdin)
-		for {
-			line, err := reader.ReadString('\n')
-			if line == "\n" || err != nil {
-				return
+	if *debug {
+		go func() {
+			reader := bufio.NewReader(os.Stdin)
+			for {
+				line, err := reader.ReadString('\n')
+				if line == "\n" || err != nil {
+					return
+				}
+				for _, r := range line {
+					input <- int(r)
+				}
 			}
-			for _, r := range line {
-				input <- int(r)
-			}
-		}
-	}()
+		}()
+	}
 
 	go func() {
 		for l := range driver {
-			fmt.Printf("[Automated]: %s\n", l)
+			inputs++
+			if *debug {
+				fmt.Printf("[Automated]: %s\n", l)
+			}
 			for _, r := range l {
 				input <- int(r)
 			}
@@ -112,10 +129,13 @@ func main() {
 	go func() {
 		var loc Loc
 		rooms := make(Maze)
-		var items []string
+		seenItems := make(map[string]bool)
+		var allItems, items []string
 		var outbound []Direction
 		var q Queue
 		var arrived *Exit
+		checkpointTry := 0
+
 		parseMode := 0
 	parse:
 		for l := range lines {
@@ -142,27 +162,28 @@ func main() {
 				}
 				parseMode = 0
 			} else if l[0] == '-' {
-				// This is a list.
-				// Doors here lead:
-				// - north
-				//
-				// Items here:
-				// - cake
 				if parseMode == 1 {
 					outbound = append(outbound, Direction(l[2:]))
 				} else if parseMode == 2 {
 					items = append(items, l[2:])
+				} else if parseMode == 3 {
+					// Do nothing.
 				} else {
 					fmt.Println("Didn't know what to do with a list outside parse mode.")
 				}
 			} else if l[len(l)-1] == ':' {
 				// This is a menu ("Doors here lead:" or "Items here:").
-				keyword := strings.Split(l, " ")[0]
+				keywords := strings.Split(l[:len(l)-1], " ")
+				keyword := keywords[0]
 				switch keyword {
 				case "Doors":
 					parseMode = 1
 				case "Items":
-					parseMode = 2
+					if keywords[1] == "here" {
+						parseMode = 2
+					} else {
+						parseMode = 3
+					}
 				default:
 					fmt.Println("Unknown menu type.")
 				}
@@ -184,6 +205,10 @@ func main() {
 					}
 					if !skip {
 						driver <- fmt.Sprintf("take %s", item)
+						if !seenItems[item] {
+							allItems = append(allItems, item)
+							seenItems[item] = true
+						}
 						continue parse
 					}
 				}
@@ -197,16 +222,28 @@ func main() {
 					}
 					// Pick a direction to move.
 					next := nextDirection(&q, loc, rooms)
-					if next == q.target.dir && loc == q.target.src {
+					if q.target != nil && next == q.target.dir && loc == q.target.src {
 						arrived = q.target
 						q.target = nil
 					}
 					if next == "dance" {
-						done <- true
+						// Now we can move onto phase 2 and access the security checkpoint.
+						next = "west"
+						sort.Strings(allItems)
+						for _, v := range itemsToDrop(allItems, checkpointTry) {
+							driver <- fmt.Sprintf("drop %s", v)
+							<-lines
+							<-lines
+							<-lines
+							<-lines
+						}
+						checkpointTry++
 					}
 					driver <- string(next)
 				} else {
-					fmt.Println("Got into somewhere we can't leave")
+					if *debug {
+						fmt.Println("Got into somewhere we can't leave")
+					}
 				}
 			} else {
 				// This is presumed to be flavor text or a response to command.
@@ -214,20 +251,25 @@ func main() {
 			}
 		}
 	}()
-	<-done
+	<-reallyFinished
 }
 
 type Queue struct {
 	mtx    sync.Mutex
 	list   []Exit
 	target *Exit
+	sensor *Exit
 }
 
 func notifyRoom(q *Queue, ex Exit, rooms Maze) {
 	q.mtx.Lock()
+	defer q.mtx.Unlock()
 	q.list = append(q.list, ex)
+	if ex.src == "Security Checkpoint" {
+		q.sensor = &ex
+		return
+	}
 	rooms[ex.src][ex.dir] = ex
-	q.mtx.Unlock()
 }
 
 func nextDirection(q *Queue, loc Loc, rooms Maze) Direction {
@@ -243,7 +285,6 @@ func nextDirection(q *Queue, loc Loc, rooms Maze) Direction {
 	}
 	// We've reached our destination and need a new destination.
 	if len(q.list) == 0 {
-		fmt.Println("Nothing left to explore. Result:")
 		return "dance"
 	}
 
@@ -269,7 +310,6 @@ func nextDirection(q *Queue, loc Loc, rooms Maze) Direction {
 
 func bfs(src Loc, dst Exit, rooms Maze) []Direction {
 	// Perform a breadth-first search.
-
 	shortest := map[Loc][]Direction{
 		src: []Direction{},
 	}
@@ -298,4 +338,15 @@ func bfs(src Loc, dst Exit, rooms Maze) []Direction {
 		}
 		worklist = worklist[1:]
 	}
+}
+
+func itemsToDrop(all []string, try int) []string {
+	var ret []string
+	for k := range all {
+		if try%2 == 1 {
+			ret = append(ret, all[k])
+		}
+		try >>= 1
+	}
+	return ret
 }
