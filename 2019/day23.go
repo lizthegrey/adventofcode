@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"github.com/lizthegrey/adventofcode/2019/intcode"
+	"sync"
 	"time"
 )
 
@@ -23,6 +24,7 @@ func main() {
 	}
 
 	var inputs, outputs [50]chan int
+	var mtx [50]sync.Mutex
 	var blocked [50]*bool
 	done := make(chan bool)
 	var nat Packet
@@ -64,8 +66,10 @@ func main() {
 					src, *blocked[src], len(inputs[src]),
 					dst, *blocked[dst], len(inputs[dst]),
 					x, y)
+				mtx[dst].Lock()
 				inputs[dst] <- x
 				inputs[dst] <- y
+				mtx[dst].Unlock()
 			}
 		}(i)
 	}
@@ -90,8 +94,10 @@ func main() {
 				} else {
 					last = nat
 				}
+				mtx[0].Lock()
 				inputs[0] <- nat.X
 				inputs[0] <- nat.Y
+				mtx[0].Unlock()
 			}
 		}
 	}()
