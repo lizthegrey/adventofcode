@@ -13,27 +13,43 @@ import (
 var inputFile = flag.String("inputFile", "inputs/day25.input", "Relative file path to use as input.")
 
 var disallow = []string{
+	"giant electromagnet",
+	"escape pod",
 	"photons",
+	"molten lava",
 	"infinite loop",
 }
 
-type Coord struct {
-	X, Y int
+type Loc string
+type Maze map[Loc]map[Direction]Exit
+type Exit struct {
+	src      Loc
+	dst      Loc
+	resolved bool
+	dir      Direction
+}
+type Direction string
+
+func (ex Exit) Invert(arrivedAt Loc) Exit {
+	var newDir Direction
+	switch ex.dir {
+	case "north":
+		newDir = "south"
+	case "east":
+		newDir = "west"
+	case "south":
+		newDir = "north"
+	case "west":
+		newDir = "east"
+	}
+	return Exit{arrivedAt, ex.src, true, newDir}
 }
 
-func (c Coord) Move(dir string) Coord {
-	ret := c
-	switch dir {
-	case "north":
-		ret.Y++
-	case "east":
-		ret.X++
-	case "south":
-		ret.Y--
-	case "west":
-		ret.X--
+func (m Maze) Move(l Loc, dir Direction) (Loc, bool) {
+	if !m[l][dir].resolved {
+		return Loc(""), false
 	}
-	return ret
+	return m[l][dir].dst, true
 }
 
 func main() {
@@ -44,9 +60,8 @@ func main() {
 		return
 	}
 
-	workingTape := tape.Copy()
 	input := make(chan int, 1)
-	output, done := workingTape.Process(input)
+	output, done := tape.Process(input)
 	lines := make(chan string, 50)
 	driver := make(chan string)
 
@@ -95,11 +110,14 @@ func main() {
 	// Always pick up items unless on disallow
 	// Stop and wait for human if we encounter unexpected problems.
 	go func() {
-		loc := Coord{0, 0}
-		rooms := make(map[Coord]string)
-		var items, outbound []string
+		var loc Loc
+		rooms := make(Maze)
+		var items []string
+		var outbound []Direction
 		var q Queue
+		var arrived *Exit
 		parseMode := 0
+	parse:
 		for l := range lines {
 			if l == "" {
 				parseMode = 0
@@ -110,9 +128,18 @@ func main() {
 				return
 			}
 			if l[0] == '=' {
-				rooms[loc] = l[3 : len(l)-3]
+				loc = Loc(l[3 : len(l)-3])
+				if rooms[loc] == nil {
+					rooms[loc] = make(map[Direction]Exit)
+				}
 				items = nil
 				outbound = nil
+				if arrived != nil {
+					rooms[arrived.src][arrived.dir] = Exit{arrived.src, loc, true, arrived.dir}
+					backTrack := arrived.Invert(loc)
+					rooms[loc][backTrack.dir] = backTrack
+					arrived = nil
+				}
 				parseMode = 0
 			} else if l[0] == '-' {
 				// This is a list.
@@ -122,7 +149,7 @@ func main() {
 				// Items here:
 				// - cake
 				if parseMode == 1 {
-					outbound = append(outbound, l[2:])
+					outbound = append(outbound, Direction(l[2:]))
 				} else if parseMode == 2 {
 					items = append(items, l[2:])
 				} else {
@@ -141,7 +168,7 @@ func main() {
 				}
 			} else if l[len(l)-1] == '?' {
 				// Program finally is waiting on our input. Decide what to do next.
-				if len(items) > 0 {
+				for len(items) > 0 {
 					item := items[0]
 					skip := false
 					for _, v := range disallow {
@@ -150,41 +177,34 @@ func main() {
 							break
 						}
 					}
-					if !skip {
-						driver <- fmt.Sprintf("take %s", items[0])
-					}
 					if len(items) > 1 {
 						items = items[1:]
 					} else {
 						items = nil
 					}
-				} else if len(outbound) > 0 {
-					for _, d := range outbound {
-						// TODO rip out and replace with a normal edge to node name system.
-						var dst Coord
-						switch d {
-						case "north":
-							dst = Coord{loc.X, loc.Y + 1}
-						case "east":
-							dst = Coord{loc.X + 1, loc.Y}
-						case "south":
-							dst = Coord{loc.X, loc.Y - 1}
-						case "west":
-							dst = Coord{loc.X - 1, loc.Y}
-						}
-						if _, ok := rooms[dst]; !ok {
+					if !skip {
+						driver <- fmt.Sprintf("take %s", item)
+						continue parse
+					}
+				}
+				if len(outbound) > 0 {
+					for _, dir := range outbound {
+						if _, ok := rooms[loc][dir]; !ok {
 							// Throw it onto our exploration queue.
-							fmt.Printf("Adding new room %v\n", dst)
-							notifyRoom(&q, dst)
+							exit := Exit{loc, "", false, dir}
+							notifyRoom(&q, exit, rooms)
 						}
 					}
 					// Pick a direction to move.
 					next := nextDirection(&q, loc, rooms)
+					if next == q.target.dir && loc == q.target.src {
+						arrived = q.target
+						q.target = nil
+					}
 					if next == "dance" {
 						done <- true
 					}
-					loc = loc.Move(next)
-					driver <- next
+					driver <- string(next)
 				} else {
 					fmt.Println("Got into somewhere we can't leave")
 				}
@@ -198,27 +218,28 @@ func main() {
 }
 
 type Queue struct {
-	mtx  sync.Mutex
-	list []Coord
-	dst  Coord
+	mtx    sync.Mutex
+	list   []Exit
+	target *Exit
 }
 
-func notifyRoom(q *Queue, nr Coord) {
+func notifyRoom(q *Queue, ex Exit, rooms Maze) {
 	q.mtx.Lock()
-	q.list = append(q.list, nr)
+	q.list = append(q.list, ex)
+	rooms[ex.src][ex.dir] = ex
 	q.mtx.Unlock()
 }
 
-func nextDirection(q *Queue, loc Coord, rooms map[Coord]string) string {
+func nextDirection(q *Queue, loc Loc, rooms Maze) Direction {
 	// Keep track of what's unexplored, and backtrack to try to find unexplored nodes.
 	// Use a DFS in order to avoid repeated backtracking.
 	q.mtx.Lock()
 	defer q.mtx.Unlock()
 
-	if loc != q.dst {
+	if q.target != nil {
 		// We are in the middle of pathing somewhere...
 		// TODO: read from the path cache.
-		return bfs(loc, q.dst, rooms)[0]
+		return bfs(loc, *q.target, rooms)[0]
 	}
 	// We've reached our destination and need a new destination.
 	if len(q.list) == 0 {
@@ -226,11 +247,11 @@ func nextDirection(q *Queue, loc Coord, rooms map[Coord]string) string {
 		return "dance"
 	}
 
-	var toExplore Coord
+	var toExplore Exit
 	for {
 		toExplore = q.list[0]
-		if _, ok := rooms[toExplore]; ok {
-			// Short circuit.
+		if _, ok := rooms.Move(toExplore.src, toExplore.dir); ok {
+			// Short circuit if we've already walked through that door.
 			q.list = q.list[1:]
 			continue
 		}
@@ -241,37 +262,39 @@ func nextDirection(q *Queue, loc Coord, rooms map[Coord]string) string {
 	} else {
 		q.list = nil
 	}
-	q.dst = toExplore
+	q.target = &toExplore
 	// TODO: write to the path cache.
-	return bfs(loc, q.dst, rooms)[0]
+	return bfs(loc, *q.target, rooms)[0]
 }
 
-func bfs(src, dst Coord, rooms map[Coord]string) []string {
+func bfs(src Loc, dst Exit, rooms Maze) []Direction {
 	// Perform a breadth-first search.
-	shortest := map[Coord][]string{
-		src: []string{},
+
+	shortest := map[Loc][]Direction{
+		src: []Direction{},
 	}
-	worklist := []Coord{src}
+	worklist := []Loc{src}
 	for {
 		w := worklist[0]
-		for _, dir := range []string{"north", "east", "south", "west"} {
-			moved := w.Move(dir)
-			if _, ok := rooms[moved]; !ok && moved != dst {
-				// Allow ourselves to pass on unknown ground only for the last move.
+		if w == dst.src {
+			directions := make([]Direction, len(shortest[w])+1)
+			copy(directions, shortest[w])
+			directions[len(shortest[w])] = dst.dir
+			return directions
+		}
+		for _, exit := range rooms[w] {
+			moved, resolved := rooms.Move(w, exit.dir)
+			if !resolved {
 				continue
 			}
 			if _, ok := shortest[moved]; ok {
 				continue
-			} else {
-				directions := make([]string, len(shortest[w])+1)
-				copy(directions, shortest[w])
-				directions[len(shortest[w])] = dir
-				shortest[moved] = directions
-				if moved == dst {
-					return shortest[moved]
-				}
-				worklist = append(worklist, moved)
 			}
+			directions := make([]Direction, len(shortest[w])+1)
+			copy(directions, shortest[w])
+			directions[len(shortest[w])] = exit.dir
+			shortest[moved] = directions
+			worklist = append(worklist, moved)
 		}
 		worklist = worklist[1:]
 	}
