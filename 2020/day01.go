@@ -20,7 +20,7 @@ func main() {
 	split := strings.Split(contents, "\n")
 	split = split[:len(split)-1]
 	seen := make([]int, len(split))
-	contains := make(map[int]bool)
+	contains := make(map[int]int)
 	for i, s := range split {
 		n, err := strconv.Atoi(s)
 		if err != nil {
@@ -32,11 +32,11 @@ func main() {
 			break
 		}
 		seen[i] = n
-		contains[n] = true
+		contains[n] = i
 	}
 partA:
-	for _, n := range seen {
-		if contains[2020-n] {
+	for i, n := range seen {
+		if pos, ok := contains[2020-n]; ok && pos != i {
 			fmt.Println(n * (2020 - n))
 			break partA
 		}
@@ -51,7 +51,7 @@ partB:
 			if sumMN >= 2020 {
 				continue
 			}
-			if contains[2020-sumMN] {
+			if pos, ok := contains[2020-sumMN]; ok && pos != i && pos != j {
 				fmt.Println(m * n * (2020 - sumMN))
 				break partB
 			}
