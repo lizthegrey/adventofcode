@@ -20,37 +20,40 @@ func main() {
 	split := strings.Split(contents, "\n")
 	split = split[:len(split)-1]
 	seen := make([]int, len(split))
+	contains := make(map[int]bool)
 	for i, s := range split {
 		n, err := strconv.Atoi(s)
 		if err != nil {
 			fmt.Printf("Failed to parse %s\n", s)
 			break
 		}
+		if n <= 0 {
+			fmt.Printf("Optimization invariant broken: %d <= 0 \n", n)
+			break
+		}
 		seen[i] = n
+		contains[n] = true
 	}
 partA:
-	for i, n := range seen {
-		for j, m := range seen {
-			if i >= j {
-				continue
-			}
-			if n+m == 2020 {
-				fmt.Println(n * m)
-				break partA
-			}
+	for _, n := range seen {
+		if contains[2020-n] {
+			fmt.Println(n * (2020 - n))
+			break partA
 		}
 	}
 partB:
-	for i, n := range seen {
-		for j, m := range seen {
-			for k, o := range seen {
-				if i >= j || j >= k {
-					continue
-				}
-				if n+m+o == 2020 {
-					fmt.Println(n * m * o)
-					break partB
-				}
+	for i, m := range seen {
+		for j, n := range seen {
+			if i >= j {
+				continue
+			}
+			sumMN := m + n
+			if sumMN >= 2020 {
+				continue
+			}
+			if contains[2020-sumMN] {
+				fmt.Println(m * n * (2020 - sumMN))
+				break partB
 			}
 		}
 	}
