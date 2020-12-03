@@ -46,14 +46,7 @@ func main() {
 		if chars[char] >= min && chars[char] <= max {
 			matchesA++
 		}
-		positionsFound := 0
-		if rune(password[min-1]) == char {
-			positionsFound++
-		}
-		if rune(password[max-1]) == char {
-			positionsFound++
-		}
-		if positionsFound == 1 {
+		if (rune(password[min-1]) == char) != (rune(password[max-1]) == char) {
 			matchesB++
 		}
 	}
