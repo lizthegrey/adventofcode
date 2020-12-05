@@ -4,18 +4,11 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
+	"strconv"
 	"strings"
 )
 
 var inputFile = flag.String("inputFile", "inputs/day05.input", "Relative file path to use as input.")
-
-type Seat struct {
-	Row, Column int
-}
-
-func (s *Seat) ID() int {
-	return s.Row*8 + s.Column
-}
 
 func main() {
 	flag.Parse()
@@ -26,48 +19,37 @@ func main() {
 	contents := string(bytes)
 	split := strings.Split(contents, "\n")
 	split = split[:len(split)-1]
-	seats := make([]Seat, len(split))
 	highestSeat := 0
-	for n, s := range split {
+	var seen [1024]bool
+	for _, s := range split {
 		// Read bits from MSB to LSB
 		if len(s) != (7 + 3) {
 			fmt.Printf("Invalid boarding pass length: %s\n", s)
 		}
-		row := 0
-		for i := 6; i >= 0; i-- {
-			if s[6-i] == 'B' {
-				row += 1 << i
-			}
+		bits := strings.ReplaceAll(s, "B", "1")
+		bits = strings.ReplaceAll(bits, "R", "1")
+		bits = strings.ReplaceAll(bits, "F", "0")
+		bits = strings.ReplaceAll(bits, "L", "0")
+		val, err := strconv.ParseInt(bits, 2, 0)
+		if err != nil {
+			fmt.Printf("Failed to parse %s\n", bits)
 		}
-
-		col := 0
-		for i := 2; i >= 0; i-- {
-			if s[9-i] == 'R' {
-				col += 1 << i
-			}
-		}
-		seats[n] = Seat{row, col}
-		if seats[n].ID() > highestSeat {
-			highestSeat = seats[n].ID()
+		value := int(val)
+		seen[value] = true
+		if value > highestSeat {
+			highestSeat = value
 		}
 	}
 	fmt.Println(highestSeat)
-	var seen [1024]bool
-	for _, v := range seats {
-		seen[v.ID()] = true
-	}
-	gap := false
 	init := true
 	for i, found := range seen {
 		if init && found {
 			init = false
-			gap = false
 			continue
 		}
-		if gap && found {
-			fmt.Println(i - 1)
+		if !init && !found {
+			fmt.Println(i)
 			break
 		}
-		gap = !found
 	}
 }
