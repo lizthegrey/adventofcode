@@ -20,7 +20,6 @@ func main() {
 	contents := string(bytes)
 	split := strings.Split(contents, "\n")
 	split = split[:len(split)-1]
-	highest := 0
 	voltages := make([]int, len(split))
 	for i, s := range split {
 		n, err := strconv.Atoi(s)
@@ -29,9 +28,6 @@ func main() {
 			break
 		}
 		voltages[i] = n
-		if n > highest {
-			highest = n
-		}
 	}
 	sort.Ints(voltages)
 	var prev, ones, threes int
@@ -51,6 +47,13 @@ func main() {
 	threes++
 	fmt.Println(ones * threes)
 
+	// (1)   (1)   (1)    ways(N-1) + ways(N)  w(N-2)+w(N-1)+w(N) etc
+	// N+3 -> N -> N-1 -> N-2      ->          N-3
+	// ............111
+	// ........... 321
+	// ...... ....6631
+	// 0..............
+	// (except in 3d, not in 2d)
 	ways := make([]int, len(voltages))
 	ways[len(voltages)-1] = 1
 	for i := len(voltages) - 2; i >= 0; i-- {
