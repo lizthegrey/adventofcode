@@ -14,7 +14,12 @@ type Coord struct {
 	Row, Col int
 }
 
+var neighbors = make(map[Coord][]Coord)
+
 func (c Coord) Adjacent(occupied map[Coord]bool) []Coord {
+	if neighbors[c] != nil {
+		return neighbors[c]
+	}
 	var ret []Coord
 	for rOffset := -1; rOffset <= 1; rOffset++ {
 		for cOffset := -1; cOffset <= 1; cOffset++ {
@@ -37,6 +42,7 @@ func (c Coord) Adjacent(occupied map[Coord]bool) []Coord {
 			}
 		}
 	}
+	neighbors[c] = ret
 	return ret
 }
 
