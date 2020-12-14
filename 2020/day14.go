@@ -43,7 +43,7 @@ func main() {
 				bits := (uint64(operand) | maskOn) &^ maskOff
 				memory[uint64(addr)] = bits
 				if *debug {
-					fmt.Printf("Wrote: %d <- %36b\n", bits, addr)
+					fmt.Printf("Wrote: %d <- %036b\n", bits, addr)
 				}
 			} else {
 				value := uint64(operand)
@@ -78,7 +78,7 @@ func main() {
 				for _, d := range dsts {
 					memory[d] = value
 					if *debug {
-						fmt.Printf("Wrote: %d <- %36b\n", d, addr)
+						fmt.Printf("Wrote: %d <- %036b\n", d, addr)
 					}
 				}
 			}
@@ -96,7 +96,7 @@ func main() {
 					maskOn |= 1 << (35 - i)
 				}
 				if *debug {
-					fmt.Printf("Off: %36b\nOn:  %36b\n", maskOff, maskOn)
+					fmt.Printf("Off: %036b\nOn:  %036b\n", maskOff, maskOn)
 				}
 			}
 		default:
