@@ -65,23 +65,24 @@ func main() {
 
 	for i := 0; i < 6; i++ {
 		prev := make(map[Coord4]bool)
+		neighCount := make(map[Coord4]int)
 		for k := range active {
-			for _, n := range k.Adjacent() {
-				if _, exists := prev[n]; !exists {
-					prev[n] = false
-				}
+			if _, exists := neighCount[k]; !exists {
+				neighCount[k] = 0
 			}
 			prev[k] = true
+			for _, n := range k.Adjacent() {
+				neighCount[n]++
+			}
 		}
 
-		for k, act := range prev {
-			if act {
-				activeNeighbors := k.ActiveNeighbors(prev)
+		for k, activeNeighbors := range neighCount {
+			if prev[k] {
 				if activeNeighbors != 2 && activeNeighbors != 3 {
 					delete(active, k)
 				}
 			} else {
-				if k.ActiveNeighbors(prev) == 3 {
+				if activeNeighbors == 3 {
 					active[k] = true
 				}
 			}
