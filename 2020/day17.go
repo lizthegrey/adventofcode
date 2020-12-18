@@ -34,16 +34,6 @@ func (c Coord4) Adjacent() []Coord4 {
 	return ret
 }
 
-func (c Coord4) ActiveNeighbors(active map[Coord4]bool) int {
-	count := 0
-	for _, n := range c.Adjacent() {
-		if active[n] {
-			count++
-		}
-	}
-	return count
-}
-
 func main() {
 	flag.Parse()
 	bytes, err := ioutil.ReadFile(*inputFile)
