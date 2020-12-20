@@ -9,7 +9,6 @@ import (
 )
 
 var inputFile = flag.String("inputFile", "inputs/day19.input", "Relative file path to use as input.")
-var debug = flag.Bool("debug", false, "Whether to print debug output along the way.")
 var partB = flag.Bool("partB", false, "Whether to use part B logic.")
 
 type Rule struct {
@@ -44,7 +43,7 @@ func (rs Ruleset) Match(ruleNo int, s string) []int {
 				matches := rs.Match(g, s[m:len(s)])
 				if len(matches) == 0 {
 					// This isn't a possible match.
-					break
+					continue
 				}
 				for _, v := range matches {
 					newPotentialMatches = append(newPotentialMatches, v+m)
@@ -53,9 +52,6 @@ func (rs Ruleset) Match(ruleNo int, s string) []int {
 			potentialMatches = newPotentialMatches
 		}
 		matchedChars = append(matchedChars, potentialMatches...)
-	}
-	if *debug {
-		fmt.Printf("Rule %d: %v matching against %s: %v\n", ruleNo, r, s, matchedChars)
 	}
 	return matchedChars
 }
