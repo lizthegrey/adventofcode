@@ -26,10 +26,6 @@ type Tile [10][10]bool
 type Edge uint16
 type Cropped [8][8]bool
 
-type Coord struct {
-	Row, Col int
-}
-
 type RotatedPiece struct {
 	TileID   int
 	Flipped  bool
@@ -41,7 +37,30 @@ func (m Mosaic) PixelAtCoord(tiles map[int]Tile, r, c int) bool {
 	mosaicRow := r / 8
 	mosaicCol := c / 8
 	t := tiles[m[mosaicRow][mosaicCol].TileID]
-	return t.Crop()[r%8][c%8]
+	flip := m[mosaicRow][mosaicCol].Flipped
+	rot := m[mosaicRow][mosaicCol].Rotation
+	// This fetch function is bad - does not take rotation into account.
+	cropped := t.Crop()
+	var row, col int
+	switch rot {
+	case 0:
+		row = r % 8
+		col = c % 8
+	case 1:
+		row = 8 - (c % 8)
+		col = r % 8
+	case 2:
+		row = 8 - (r % 8)
+		col = 8 - (c % 8)
+	case 3:
+		row = c % 8
+		col = 8 - (r % 8)
+	}
+	if flip {
+		// TODO(lizf): figure out what this actually corresponds to.
+		row = 8 - row
+	}
+	return cropped[row][col]
 }
 
 func (m Mosaic) MonsterTopLeftCoord(tiles map[int]Tile, r, c int) bool {
@@ -58,17 +77,17 @@ func (m Mosaic) MonsterTopLeftCoord(tiles map[int]Tile, r, c int) bool {
 	return true
 }
 
-func (m Mosaic) FindMonsters(tiles map[int]Tile) []Coord {
+func (m Mosaic) FindMonsters(tiles map[int]Tile, rot int, flip bool) int {
 	// Find the sea monster.
-	var monsters []Coord
+	var monstersFound int
 	for r := 0; (r+len(SeaMonster))*(r+len(SeaMonster)) < 100*len(tiles); r++ {
 		for c := 0; (c+len(SeaMonster[0]))*(c+len(SeaMonster[0])) < 100*len(tiles); c++ {
 			if m.MonsterTopLeftCoord(tiles, r, c) {
-				monsters = append(monsters, Coord{r, c})
+				monstersFound++
 			}
 		}
 	}
-	return monsters
+	return monstersFound
 }
 
 func (r RotatedPiece) GetEdge(tiles map[int]Tile, side int) Edge {
@@ -93,6 +112,18 @@ func (t Tile) Crop() Cropped {
 		}
 	}
 	return ret
+}
+
+func (c Cropped) Count() int {
+	count := 0
+	for _, row := range c {
+		for _, pixel := range row {
+			if pixel {
+				count++
+			}
+		}
+	}
+	return count
 }
 
 func (t Tile) Edges() [4]Edge {
@@ -232,6 +263,7 @@ func main() {
 		fmt.Println("Failed to traverse right from what should be top left.")
 		return
 	}
+	fmt.Println(image[0])
 
 	for c := 0; c*c < len(tiles); c++ {
 		count = image.Traverse(tiles, used, 0, c, BOTTOM)
@@ -242,8 +274,23 @@ func main() {
 	}
 	fmt.Println(image)
 
-	monsters := image.FindMonsters(tiles)
-	fmt.Println(len(monsters))
+	var monsterCount int
+outer:
+	for rot := 0; rot < 4; rot++ {
+		for flip := 0; flip <= 1; flip++ {
+			monsterCount = image.FindMonsters(tiles, rot, flip == 1)
+			if monsterCount != 0 {
+				break outer
+			}
+		}
+	}
+
+	monsterPixels := monsterCount * 15
+	sum = 0
+	for _, t := range tiles {
+		sum += t.Crop().Count()
+	}
+	fmt.Println(sum - monsterPixels)
 }
 
 func (m Mosaic) Traverse(tiles map[int]Tile, used map[int]bool, r, c int, dir int) int {
@@ -280,7 +327,7 @@ outer:
 				if loose == e {
 					m[row][col].TileID = s
 					m[row][col].Flipped = !m[row-rIncr][col-cIncr].Flipped
-					m[row][col].Rotation = (4 + dir - d) % 4
+					m[row][col].Rotation = (2 + dir - d) % 4
 					loose = edges[(d+2)%4]
 					used[s] = true
 					continue outer
@@ -288,7 +335,7 @@ outer:
 				if loose.Flip() == e {
 					m[row][col].TileID = s
 					m[row][col].Flipped = m[row-rIncr][col-cIncr].Flipped
-					m[row][col].Rotation = (4 + dir - d) % 4
+					m[row][col].Rotation = (2 + dir - d) % 4
 					loose = edges[(d+2)%4].Flip()
 					used[s] = true
 					continue outer
