@@ -11,20 +11,79 @@ import (
 var inputFile = flag.String("inputFile", "inputs/day20.input", "Relative file path to use as input.")
 var debug = flag.Bool("debug", false, "Whether to print debug output along the way.")
 
-const SeaMonster string = `                  # 
+var SeaMonster = strings.Split(`                  # 
 #    ##    ##    ###
- #  #  #  #  #  #   `
+ #  #  #  #  #  #   `, " ")
+
+const (
+	TOP = iota
+	RIGHT
+	BOTTOM
+	LEFT
+)
 
 type Tile [10][10]bool
 type Edge uint16
 type Cropped [8][8]bool
 
+type Coord struct {
+	Row, Col int
+}
+
 type RotatedPiece struct {
 	TileID   int
 	Flipped  bool
-	Rotation uint8
+	Rotation int
 }
 type Mosaic [][]RotatedPiece
+
+func (m Mosaic) PixelAtCoord(tiles map[int]Tile, r, c int) bool {
+	mosaicRow := r / 8
+	mosaicCol := c / 8
+	t := tiles[m[mosaicRow][mosaicCol].TileID]
+	return t.Crop()[r%8][c%8]
+}
+
+func (m Mosaic) MonsterTopLeftCoord(tiles map[int]Tile, r, c int) bool {
+	for rOffset, row := range SeaMonster {
+		for cOffset, char := range row {
+			if char != '#' {
+				continue
+			}
+			if !m.PixelAtCoord(tiles, r+rOffset, c+cOffset) {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+func (m Mosaic) FindMonsters(tiles map[int]Tile) []Coord {
+	// Find the sea monster.
+	var monsters []Coord
+	for r := 0; (r+len(SeaMonster))*(r+len(SeaMonster)) < 100*len(tiles); r++ {
+		for c := 0; (c+len(SeaMonster[0]))*(c+len(SeaMonster[0])) < 100*len(tiles); c++ {
+			if m.MonsterTopLeftCoord(tiles, r, c) {
+				monsters = append(monsters, Coord{r, c})
+			}
+		}
+	}
+	return monsters
+}
+
+func (r RotatedPiece) GetEdge(tiles map[int]Tile, side int) Edge {
+	t := tiles[r.TileID]
+	edges := t.Edges()
+	idx := (side + 4 - r.Rotation) % 4
+	if r.Flipped && (idx == RIGHT || idx == LEFT) {
+		idx = (idx + 2) % 4
+	}
+	edge := edges[idx]
+	if r.Flipped {
+		edge = edge.Flip()
+	}
+	return edge
+}
 
 func (t Tile) Crop() Cropped {
 	var ret Cropped
@@ -59,7 +118,8 @@ func (t Tile) Edges() [4]Edge {
 			right |= 1 << i
 		}
 	}
-	return [4]Edge{top, bottom, left, right}
+	// Return in clockwise orientation.
+	return [4]Edge{top, right, bottom.Flip(), left.Flip()}
 }
 
 func (e Edge) Flip() Edge {
@@ -152,9 +212,93 @@ func main() {
 		}
 		image = append(image, line)
 	}
-	image[0][0].TileID = corners[0]
 
 	// Fill in the top row.
-	for c := 1; (c+1)*(c+1) < len(tiles); c++ {
+	var topLeft int
+	for i := 0; i < 4; i++ {
+		matchingRight := allEdges[tiles[corners[i]].Edges()[RIGHT]]
+		matchingDown := allEdges[tiles[corners[i]].Edges()[BOTTOM]]
+		if len(matchingRight) < 2 || len(matchingDown) < 2 {
+			// This is not the top left corner.
+			continue
+		}
+		topLeft = corners[i]
 	}
+
+	image[0][0].TileID = topLeft
+	used := map[int]bool{topLeft: true}
+	count := image.Traverse(tiles, used, 0, 0, RIGHT)
+	if count == 0 {
+		fmt.Println("Failed to traverse right from what should be top left.")
+		return
+	}
+
+	for c := 0; c*c < len(tiles); c++ {
+		count = image.Traverse(tiles, used, 0, c, BOTTOM)
+		if count == 0 {
+			fmt.Printf("Failed to traverse down column %d\n", c)
+			return
+		}
+	}
+	fmt.Println(image)
+
+	monsters := image.FindMonsters(tiles)
+	fmt.Println(len(monsters))
+}
+
+func (m Mosaic) Traverse(tiles map[int]Tile, used map[int]bool, r, c int, dir int) int {
+	loose := m[r][c].GetEdge(tiles, dir)
+	var rIncr, cIncr int
+	switch dir {
+	case RIGHT:
+		cIncr = 1
+	case BOTTOM:
+		rIncr = 1
+	case LEFT:
+		cIncr = -1
+	case TOP:
+		rIncr = -1
+	}
+	i := 1
+outer:
+	for ; ; i++ {
+		row := r + rIncr*i
+		col := c + cIncr*i
+		if row < 0 || row*row >= len(tiles) {
+			break
+		}
+		if row < 0 || col*col >= len(tiles) {
+			break
+		}
+		for s, t := range tiles {
+			if used[s] {
+				// Don't re-use the same piece twice.
+				continue
+			}
+			edges := t.Edges()
+			for d, e := range edges {
+				if loose == e {
+					m[row][col].TileID = s
+					m[row][col].Flipped = !m[row-rIncr][col-cIncr].Flipped
+					m[row][col].Rotation = (4 + dir - d) % 4
+					loose = edges[(d+2)%4]
+					used[s] = true
+					continue outer
+				}
+				if loose.Flip() == e {
+					m[row][col].TileID = s
+					m[row][col].Flipped = m[row-rIncr][col-cIncr].Flipped
+					m[row][col].Rotation = (4 + dir - d) % 4
+					loose = edges[(d+2)%4].Flip()
+					used[s] = true
+					continue outer
+				}
+				// Otherwise, this edge didn't match. Continue on to other edges.
+			}
+			// This piece hasn't matched, continue on to other pieces.
+		}
+		// We didn't match any pieces, abort.
+		return 0
+	}
+	return i - 1
 }
