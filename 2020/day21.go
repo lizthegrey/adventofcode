@@ -19,21 +19,17 @@ func main() {
 	contents := string(bytes)
 	split := strings.Split(contents, "\n")
 	split = split[:len(split)-1]
-	foods := make(map[int]map[string]bool)
-	inverseContains := make(map[string]map[int]bool)
+	foods := make(map[int][]string)
+	inverseContains := make(map[string][]int)
 	for i, s := range split {
-		foods[i] = make(map[string]bool)
 		parts := strings.Split(s, " (contains ")
 		ingreds := strings.Split(parts[0], " ")
 		for _, ing := range ingreds {
-			foods[i][ing] = true
+			foods[i] = append(foods[i], ing)
 		}
 		allergens := strings.Split(parts[1][0:len(parts[1])-1], ", ")
 		for _, a := range allergens {
-			if inverseContains[a] == nil {
-				inverseContains[a] = make(map[int]bool)
-			}
-			inverseContains[a][i] = true
+			inverseContains[a] = append(inverseContains[a], i)
 		}
 	}
 	candidates := make(map[string]map[string]bool)
@@ -42,9 +38,9 @@ func main() {
 		// recipes containing that allergen.
 		ingredientsSeen := make(map[string]int)
 		candidates[allergen] = make(map[string]bool)
-		for rNum := range recipes {
+		for _, rNum := range recipes {
 			recipe := foods[rNum]
-			for i := range recipe {
+			for _, i := range recipe {
 				ingredientsSeen[i]++
 			}
 		}
@@ -81,7 +77,7 @@ func main() {
 	}
 	var result int
 	for _, recipe := range foods {
-		for i := range recipe {
+		for _, i := range recipe {
 			if _, found := foodToAllergenMapping[i]; !found {
 				result++
 			}
