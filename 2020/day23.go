@@ -36,14 +36,16 @@ func main() {
 	}
 	if *partB {
 		last := cups.Prev()
-		added := ring.New(1000000 - len(input) + 1)
-		for i := len(input); i <= 1000000; i++ {
+		added := ring.New(1000000 - len(input))
+		for i := len(input) + 1; i <= 1000000; i++ {
 			added.Value = i
 			cache[i] = added
 			added = added.Next()
 		}
 		last.Link(added)
 	}
+
+	ringSize := cups.Len()
 
 	iters := 100
 	if *partB {
@@ -52,17 +54,14 @@ func main() {
 
 	current := cups
 	for i := 0; i < iters; i++ {
-		if i%1000 == 0 {
-			fmt.Printf("Iteration %d\n", i)
-		}
 		removed := current.Unlink(3)
-		dst := 1 + ((len(input) + current.Value.(int) - 2) % len(input))
+		dst := 1 + ((ringSize + current.Value.(int) - 2) % ringSize)
 		inRemoved := make(map[int]bool)
 		for n := 1; n <= 3; n++ {
 			inRemoved[removed.Move(n).Value.(int)] = true
 		}
 		for inRemoved[dst] {
-			dst = 1 + ((len(input) + dst - 2) % len(input))
+			dst = 1 + ((ringSize + dst - 2) % ringSize)
 		}
 		cache[dst].Link(removed)
 		current = current.Next()
@@ -72,7 +71,7 @@ func main() {
 	if *partB {
 		a := first.Move(1).Value.(int)
 		b := first.Move(2).Value.(int)
-		fmt.Printf("%d*%d = %d\n", a, b, a*b)
+		fmt.Println(a * b)
 		return
 	}
 
