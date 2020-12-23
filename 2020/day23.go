@@ -57,7 +57,7 @@ func main() {
 		removed := current.Unlink(3)
 		dst := 1 + ((ringSize + current.Value.(int) - 2) % ringSize)
 		inRemoved := make(map[int]bool)
-		for n := 1; n <= 3; n++ {
+		for n := 0; n < 3; n++ {
 			inRemoved[removed.Move(n).Value.(int)] = true
 		}
 		for inRemoved[dst] {
@@ -72,13 +72,11 @@ func main() {
 		a := first.Move(1).Value.(int)
 		b := first.Move(2).Value.(int)
 		fmt.Println(a * b)
-		return
+	} else {
+		for i := 1; i < len(input); i++ {
+			first = first.Next()
+			fmt.Printf("%d", first.Value.(int))
+		}
+		fmt.Println()
 	}
-
-	// cups should be on the cup labeled 1.
-	for i := 1; i < len(input); i++ {
-		first = first.Next()
-		fmt.Printf("%d", first.Value.(int))
-	}
-	fmt.Println()
 }
