@@ -30,18 +30,27 @@ func main() {
 		return
 	}
 
-	doorLoop := Loop(7, door)
-	value := 1
-	for i := 1; i <= doorLoop; i++ {
-		value *= card
-		value %= 20201227
+	dLoop := Loop(7, door)
+	cValue := 1
+	for i := 1; i <= dLoop; i++ {
+		cValue *= card
+		cValue %= 20201227
 	}
-	fmt.Println(value)
+	cLoop := Loop(7, card)
+	dValue := 1
+	for i := 1; i <= cLoop; i++ {
+		dValue *= door
+		dValue %= 20201227
+	}
+	if dValue != cValue {
+		fmt.Printf("%d != %d", dValue, cValue)
+	}
+	fmt.Println(dValue)
 }
 
 func Loop(subject, target int) int {
 	value := 1
-	for i := 1; i < 1000000000; i++ {
+	for i := 1; ; i++ {
 		value *= subject
 		value %= 20201227
 		if value == target {
