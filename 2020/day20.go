@@ -9,11 +9,6 @@ import (
 )
 
 var inputFile = flag.String("inputFile", "inputs/day20.input", "Relative file path to use as input.")
-var debug = flag.Bool("debug", false, "Whether to print debug output along the way.")
-
-var SeaMonster = strings.Split(`                  # 
-#    ##    ##    ###
- #  #  #  #  #  #   `, "\n")
 
 type Tile [10][10]bool
 type Edge uint16
@@ -24,71 +19,6 @@ const (
 	BOTTOM
 	LEFT
 )
-
-type Cropped [8][8]bool
-
-// This is assumed to be pre-rotated/flipped.
-type Mosaic [][]Tile
-
-func (m Mosaic) PixelAtCoord(r, c int) bool {
-	mosaicRow := r / 8
-	mosaicCol := c / 8
-	cropped := m[mosaicRow][mosaicCol].Crop()
-	row := r % 8
-	col := c % 8
-	return cropped[row][col]
-}
-
-func (m Mosaic) FlipX() Mosaic {
-	var ret Mosaic
-	for r := range m {
-		var row []Tile
-		for c := range m[r] {
-			row = append(row, m[len(m)-1-r][c].FlipX())
-		}
-		ret = append(ret, row)
-	}
-	return ret
-}
-
-func (m Mosaic) RotCW() Mosaic {
-	var ret Mosaic
-	for r := range m {
-		var row []Tile
-		for c := range m[r] {
-			row = append(row, m[len(m[0])-1-c][r].RotCW())
-		}
-		ret = append(ret, row)
-	}
-	return ret
-}
-
-func (m Mosaic) MonsterTopLeftCoord(r, c int) bool {
-	for rOffset, row := range SeaMonster {
-		for cOffset, char := range row {
-			if char != '#' {
-				continue
-			}
-			if !m.PixelAtCoord(r+rOffset, c+cOffset) {
-				return false
-			}
-		}
-	}
-	return true
-}
-
-func (m Mosaic) FindMonsters() int {
-	// Find the sea monster.
-	var monstersFound int
-	for r := 0; r+len(SeaMonster) < 8*len(m); r++ {
-		for c := 0; c+len(SeaMonster[0]) < 8*len(m[0]); c++ {
-			if m.MonsterTopLeftCoord(r, c) {
-				monstersFound++
-			}
-		}
-	}
-	return monstersFound
-}
 
 func (t Tile) Crop() Cropped {
 	var ret Cropped
@@ -165,6 +95,174 @@ func (e Edge) Flip() Edge {
 	return ret
 }
 
+type Cropped [8][8]bool
+
+// This is assumed to be pre-rotated/flipped.
+type Mosaic [][]Tile
+
+func (m Mosaic) PixelAtCoord(r, c int) bool {
+	mosaicRow := r / 8
+	mosaicCol := c / 8
+	cropped := m[mosaicRow][mosaicCol].Crop()
+	row := r % 8
+	col := c % 8
+	return cropped[row][col]
+}
+
+func (m Mosaic) FlipX() Mosaic {
+	var ret Mosaic
+	for r := range m {
+		var row []Tile
+		for c := range m[r] {
+			row = append(row, m[len(m)-1-r][c].FlipX())
+		}
+		ret = append(ret, row)
+	}
+	return ret
+}
+
+func (m Mosaic) RotCW() Mosaic {
+	var ret Mosaic
+	for r := range m {
+		var row []Tile
+		for c := range m[r] {
+			row = append(row, m[len(m[0])-1-c][r].RotCW())
+		}
+		ret = append(ret, row)
+	}
+	return ret
+}
+
+func (m Mosaic) CheckSingleEdge(t Tile, r, c, dir int) bool {
+	oDir := (dir + 2) % 4
+	var otherR, otherC int
+	switch dir {
+	case TOP:
+		if r-1 < 0 {
+			return true
+		}
+		otherC = c
+		otherR = r - 1
+	case BOTTOM:
+		if r+1 >= len(m) {
+			return true
+		}
+		otherC = c
+		otherR = r + 1
+	case LEFT:
+		if c-1 < 0 {
+			return true
+		}
+		otherC = c - 1
+		otherR = r
+	case RIGHT:
+		if c+1 >= len(m[0]) {
+			return true
+		}
+		otherC = c + 1
+		otherR = r
+	}
+	otherTile := m[otherR][otherC]
+	var empty Tile
+	if otherTile == empty {
+		return true
+	}
+	return otherTile.Edges()[oDir] == t.Edges()[dir].Flip()
+}
+
+func (m Mosaic) CheckFit(t Tile, r, c int) bool {
+	// Check up, if exists.
+	if !m.CheckSingleEdge(t, r, c, TOP) {
+		return false
+	}
+	// Check down, if exists.
+	if !m.CheckSingleEdge(t, r, c, BOTTOM) {
+		return false
+	}
+	// Check left, if exists.
+	if !m.CheckSingleEdge(t, r, c, LEFT) {
+		return false
+	}
+	// Check right, if exists.
+	if !m.CheckSingleEdge(t, r, c, RIGHT) {
+		return false
+	}
+
+	return true
+}
+
+func (m Mosaic) Traverse(allTiles map[Tile]int, used map[int]bool, r, c int, dir int) int {
+	var rIncr, cIncr int
+	switch dir {
+	case RIGHT:
+		cIncr = 1
+	case BOTTOM:
+		rIncr = 1
+	case LEFT:
+		cIncr = -1
+	case TOP:
+		rIncr = -1
+	}
+	i := 1
+outer:
+	for ; ; i++ {
+		row := r + rIncr*i
+		col := c + cIncr*i
+		if row < 0 || row >= len(m) {
+			break
+		}
+		if row < 0 || col >= len(m[0]) {
+			break
+		}
+		for t, s := range allTiles {
+			if used[s] {
+				// Don't re-use the same piece twice.
+				continue
+			}
+			if m.CheckFit(t, row, col) {
+				used[s] = true
+				m[row][col] = t
+				continue outer
+			}
+			// This piece hasn't matched, continue on to other pieces.
+		}
+		// We didn't match any pieces, abort.
+		return 0
+	}
+	return i - 1
+}
+
+var SeaMonster = strings.Split(`                  # 
+#    ##    ##    ###
+ #  #  #  #  #  #   `, "\n")
+
+func (m Mosaic) MonsterTopLeftCoord(r, c int) bool {
+	for rOffset, row := range SeaMonster {
+		for cOffset, char := range row {
+			if char != '#' {
+				continue
+			}
+			if !m.PixelAtCoord(r+rOffset, c+cOffset) {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+func (m Mosaic) FindMonsters() int {
+	// Find the sea monster.
+	var monstersFound int
+	for r := 0; r+len(SeaMonster) < 8*len(m); r++ {
+		for c := 0; c+len(SeaMonster[0]) < 8*len(m[0]); c++ {
+			if m.MonsterTopLeftCoord(r, c) {
+				monstersFound++
+			}
+		}
+	}
+	return monstersFound
+}
+
 func main() {
 	flag.Parse()
 	bytes, err := ioutil.ReadFile(*inputFile)
@@ -194,16 +292,6 @@ func main() {
 			}
 		}
 		tiles[n] = tile
-	}
-	if *debug {
-		for i, t := range tiles {
-			edges := t.Edges()
-			var flipped [4]Edge
-			for i, e := range edges {
-				flipped[i] = e.Flip()
-			}
-			fmt.Printf("Tile %d: %v (flipped: %v)\n", i, edges, flipped)
-		}
 	}
 	allEdges := make(map[Edge][]int)
 	for i, t := range tiles {
@@ -235,9 +323,6 @@ func main() {
 		}
 	}
 	fmt.Println(product)
-	if *debug {
-		fmt.Printf("Number of corners found: %d; number of sides found: %d\n", len(corners), len(sides))
-	}
 
 	var image Mosaic
 	for r := 0; r*r < len(tiles); r++ {
@@ -276,14 +361,14 @@ func main() {
 	}
 
 	count := image.Traverse(allTiles, used, 0, 0, RIGHT)
-	if count == 0 {
+	if count != len(image[0])-1 {
 		fmt.Println("Failed to traverse right from what should be top left.")
 		return
 	}
 
-	for c := 0; c*c < len(tiles); c++ {
+	for c := 0; c < len(image[0]); c++ {
 		count = image.Traverse(allTiles, used, 0, c, BOTTOM)
-		if count == 0 {
+		if count != len(image)-1 {
 			fmt.Printf("Failed to traverse down column %d\n", c)
 			return
 		}
@@ -291,8 +376,8 @@ func main() {
 
 	var monsterCount int
 outer:
-	for rot := 0; rot < 4; rot++ {
-		for flip := 0; flip < 2; flip++ {
+	for flip := 0; flip < 2; flip++ {
+		for rot := 0; rot < 4; rot++ {
 			monsterCount = image.FindMonsters()
 			if monsterCount != 0 {
 				break outer
@@ -311,48 +396,4 @@ outer:
 		sum += t.Crop().Count()
 	}
 	fmt.Println(sum - monsterPixels)
-}
-
-func (m Mosaic) Traverse(allTiles map[Tile]int, used map[int]bool, r, c int, dir int) int {
-	loose := m[r][c].Edges()[dir]
-	var rIncr, cIncr int
-	switch dir {
-	case RIGHT:
-		cIncr = 1
-	case BOTTOM:
-		rIncr = 1
-	case LEFT:
-		cIncr = -1
-	case TOP:
-		rIncr = -1
-	}
-	i := 1
-outer:
-	for ; ; i++ {
-		row := r + rIncr*i
-		col := c + cIncr*i
-		if row < 0 || row >= len(m) {
-			break
-		}
-		if row < 0 || col >= len(m[0]) {
-			break
-		}
-		for t, s := range allTiles {
-			if used[s] {
-				// Don't re-use the same piece twice.
-				continue
-			}
-			edges := t.Edges()
-			if loose.Flip() == edges[(dir+2)%4] {
-				used[s] = true
-				loose = edges[dir]
-				m[row][col] = t
-				continue outer
-			}
-			// This piece hasn't matched, continue on to other pieces.
-		}
-		// We didn't match any pieces, abort.
-		return 0
-	}
-	return i - 1
 }
