@@ -13,7 +13,7 @@ var debug = flag.Bool("debug", false, "Whether to print debug output along the w
 
 var SeaMonster = strings.Split(`                  # 
 #    ##    ##    ###
- #  #  #  #  #  #   `, " ")
+ #  #  #  #  #  #   `, "\n")
 
 type Tile [10][10]bool
 type Edge uint16
@@ -44,7 +44,7 @@ func (m Mosaic) FlipX() Mosaic {
 	for r := range m {
 		var row []Tile
 		for c := range m[r] {
-			row = append(row, m[9-r][c].FlipX())
+			row = append(row, m[len(m)-1-r][c].FlipX())
 		}
 		ret = append(ret, row)
 	}
@@ -56,7 +56,7 @@ func (m Mosaic) RotCW() Mosaic {
 	for r := range m {
 		var row []Tile
 		for c := range m[r] {
-			row = append(row, m[9-c][r].RotCW())
+			row = append(row, m[len(m[0])-1-c][r].RotCW())
 		}
 		ret = append(ret, row)
 	}
@@ -288,7 +288,6 @@ func main() {
 			return
 		}
 	}
-	fmt.Println(image)
 
 	var monsterCount int
 outer:
@@ -301,6 +300,9 @@ outer:
 			image = image.RotCW()
 		}
 		image = image.FlipX()
+	}
+	if monsterCount == 0 {
+		fmt.Println("Failed to detect any monsters despite rotating and flipping.")
 	}
 
 	monsterPixels := monsterCount * 15
@@ -341,12 +343,11 @@ outer:
 				continue
 			}
 			edges := t.Edges()
-			for _, e := range edges {
-				if loose.Flip() == e {
-					used[s] = true
-					continue outer
-				}
-				// Otherwise, this edge didn't match. Continue on to other edges.
+			if loose.Flip() == edges[(dir+2)%4] {
+				used[s] = true
+				loose = edges[dir]
+				m[row][col] = t
+				continue outer
 			}
 			// This piece hasn't matched, continue on to other pieces.
 		}
