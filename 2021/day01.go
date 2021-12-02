@@ -18,7 +18,6 @@ func main() {
 	}
 	contents := string(bytes)
 	split := strings.Split(contents, "\n")
-	split = split[:len(split)-1]
 
 	// part A
 	last := -1
