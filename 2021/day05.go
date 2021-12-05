@@ -34,6 +34,7 @@ func main() {
 		startY, _ := strconv.Atoi(startRaw[1])
 		endX, _ := strconv.Atoi(endRaw[0])
 		endY, _ := strconv.Atoi(endRaw[1])
+
 		if startX == endX {
 			if startY < endY {
 				for y := startY; y <= endY; y++ {
@@ -82,18 +83,16 @@ func main() {
 			}
 		}
 	}
+	fmt.Println(countMultiples(cloudsA))
+	fmt.Println(countMultiples(cloudsB))
+}
 
-	var countA, countB int
-	for _, v := range cloudsA {
+func countMultiples(clouds map[Coord]int) int {
+	var count int
+	for _, v := range clouds {
 		if v >= 2 {
-			countA++
+			count++
 		}
 	}
-	for _, v := range cloudsB {
-		if v >= 2 {
-			countB++
-		}
-	}
-	fmt.Println(countA)
-	fmt.Println(countB)
+	return count
 }
