@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"strings"
+	"sync"
 
 	"github.com/lizthegrey/adventofcode/2021/trace"
 	"go.opentelemetry.io/otel"
@@ -17,17 +18,20 @@ var inputFile = flag.String("inputFile", "inputs/day12.input", "Relative file pa
 var tr = otel.Tracer("day12")
 
 type Exits map[string][]string
-type Path []string
+type Path map[string]bool
 type PathWithRepeat struct {
 	Visited      Path
+	Location     string
 	RepeatedNode string
 }
 
 // Extend copies the current Path to not share the slice, and appends next node.
 func (p Path) Extend(next string) Path {
-	pathCopy := make(Path, len(p), len(p)+1)
-	copy(pathCopy, p)
-	pathCopy = append(pathCopy, next)
+	pathCopy := make(Path)
+	for n := range p {
+		pathCopy[n] = true
+	}
+	pathCopy[next] = true
 	return pathCopy
 }
 
@@ -45,17 +49,15 @@ func (p PathWithRepeat) mayVisit(n string) (bool, bool) {
 		return false, false
 	}
 	// Check all of the visited nodes in our path for duplication.
-	for _, e := range p.Visited {
-		if e == n {
-			if p.RepeatedNode == "" {
-				// This is okay to visit, but must be flagged as our repeat so
-				// we don't visit a third time, or visit another node a second time.
-				return true, true
-			} else {
-				// This is not okay to visit because we've already used our repeat
-				// on another small cave in this path.
-				return false, false
-			}
+	if p.Visited[n] {
+		if p.RepeatedNode == "" {
+			// This is okay to visit, but must be flagged as our repeat so
+			// we don't visit a third time, or visit another node a second time.
+			return true, true
+		} else {
+			// This is not okay to visit because we've already used our repeat
+			// on another small cave in this path.
+			return false, false
 		}
 	}
 	return true, false
@@ -84,10 +86,10 @@ func main() {
 		exits[parts[1]] = append(exits[parts[1]], parts[0])
 	}
 	fmt.Println(exits.Search([]PathWithRepeat{
-		{Visited: Path{"start"}, RepeatedNode: "invalid"},
+		{Visited: Path{"start": true}, Location: "start", RepeatedNode: "invalid"},
 	}))
 	fmt.Println(exits.Search([]PathWithRepeat{
-		{Visited: Path{"start"}, RepeatedNode: ""},
+		{Visited: Path{"start": true}, Location: "start", RepeatedNode: ""},
 	}))
 }
 
@@ -105,29 +107,41 @@ func (exits Exits) Search(queue []PathWithRepeat) int {
 		_, sp = tr.Start(ctx, "iteration")
 		sp.SetAttributes(attribute.Int("queue_length", len(queue)))
 		var nextQueue []PathWithRepeat
-		for _, item := range queue {
-			path := item.Visited
-			last := path[len(path)-1]
-			if last == "end" {
-				// This is a unique path that has reached the end.
-				paths++
-				continue
-			}
-			for _, n := range exits[last] {
-				mayVisit, isRepeat := item.mayVisit(n)
-				if !mayVisit {
-					continue
+		var mtx sync.Mutex
+		var wg sync.WaitGroup
+		wg.Add(len(queue))
+		for _, i := range queue {
+			go func(item PathWithRepeat) {
+				defer wg.Done()
+				path := item.Visited
+				last := item.Location
+				if last == "end" {
+					// This is a unique path that has reached the end.
+					mtx.Lock()
+					paths++
+					mtx.Unlock()
+					return
 				}
-				nextItem := PathWithRepeat{
-					Visited:      path.Extend(n),
-					RepeatedNode: item.RepeatedNode,
+				for _, n := range exits[last] {
+					mayVisit, isRepeat := item.mayVisit(n)
+					if !mayVisit {
+						continue
+					}
+					nextItem := PathWithRepeat{
+						Visited:      path.Extend(n),
+						Location:     n,
+						RepeatedNode: item.RepeatedNode,
+					}
+					if isRepeat {
+						nextItem.RepeatedNode = n
+					}
+					mtx.Lock()
+					nextQueue = append(nextQueue, nextItem)
+					mtx.Unlock()
 				}
-				if isRepeat {
-					nextItem.RepeatedNode = n
-				}
-				nextQueue = append(nextQueue, nextItem)
-			}
+			}(i)
 		}
+		wg.Wait()
 		sp.SetAttributes(attribute.Int("paths_so_far", paths))
 		queue = nextQueue
 		sp.End()
