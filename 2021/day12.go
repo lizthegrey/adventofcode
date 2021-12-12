@@ -1,13 +1,20 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"io/ioutil"
 	"strings"
+
+	"github.com/lizthegrey/adventofcode/2021/trace"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 )
 
 var inputFile = flag.String("inputFile", "inputs/day12.input", "Relative file path to use as input.")
+
+var tr = otel.Tracer("day12")
 
 type Exits map[string][]string
 type Path []string
@@ -56,6 +63,12 @@ func (p PathWithRepeat) mayVisit(n string) (bool, bool) {
 
 func main() {
 	flag.Parse()
+
+	ctx := context.Background()
+	hny, tp := trace.InitializeTracing(ctx)
+	defer hny.Shutdown(ctx)
+	defer tp.Shutdown(ctx)
+
 	bytes, err := ioutil.ReadFile(*inputFile)
 	if err != nil {
 		return
@@ -83,8 +96,14 @@ func main() {
 // Paths end and are counted if they reach "end", and paths are only extended
 // and put onto worklist for their neighboring reachable nodes.
 func (exits Exits) Search(queue []PathWithRepeat) int {
+	ctx, sp := tr.Start(context.Background(), "Search")
+	defer sp.End()
+	sp.SetAttributes(attribute.String("topology", fmt.Sprintf("%v", exits)))
+
 	paths := 0
 	for len(queue) != 0 {
+		_, sp = tr.Start(ctx, "iteration")
+		sp.SetAttributes(attribute.Int("queue_length", len(queue)))
 		var nextQueue []PathWithRepeat
 		for _, item := range queue {
 			path := item.Visited
@@ -109,7 +128,9 @@ func (exits Exits) Search(queue []PathWithRepeat) int {
 				nextQueue = append(nextQueue, nextItem)
 			}
 		}
+		sp.SetAttributes(attribute.Int("paths_so_far", paths))
 		queue = nextQueue
+		sp.End()
 	}
 	return paths
 }
