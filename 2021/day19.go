@@ -83,24 +83,26 @@ func (c Coord3) Map(m MappingMatrix) Coord3 {
 	}
 }
 
-func (m MappingMatrix) Map(n MappingMatrix) MappingMatrix {
-	return MappingMatrix{
-		{
-			m[0][0]*n[0][0] + m[0][1]*n[1][0] + m[0][2]*n[2][0],
-			m[0][0]*n[0][1] + m[0][1]*n[1][1] + m[0][2]*n[2][1],
-			m[0][0]*n[0][2] + m[0][1]*n[1][2] + m[0][2]*n[2][2],
-		},
-		{
-			m[1][0]*n[0][0] + m[1][1]*n[1][0] + m[1][2]*n[2][0],
-			m[1][0]*n[0][1] + m[1][1]*n[1][1] + m[1][2]*n[2][1],
-			m[1][0]*n[0][2] + m[1][1]*n[1][2] + m[1][2]*n[2][2],
-		},
-		{
-			m[2][0]*n[0][0] + m[2][1]*n[1][0] + m[2][2]*n[2][0],
-			m[2][0]*n[0][1] + m[2][1]*n[1][1] + m[2][2]*n[2][1],
-			m[2][0]*n[0][2] + m[2][1]*n[1][2] + m[2][2]*n[2][2],
-		},
+func (m MappingMatrix) Invert() MappingMatrix {
+	var ret MappingMatrix
+	for r := range m {
+		for c := range m[r] {
+			ret[c][r] = m[r][c]
+		}
 	}
+	return ret
+}
+
+func (m MappingMatrix) Map(n MappingMatrix) MappingMatrix {
+	var ret MappingMatrix
+	for r := range ret {
+		for c := range ret[r] {
+			for i := range ret {
+				ret[r][c] += m[r][i] * n[i][c]
+			}
+		}
+	}
+	return ret
 }
 
 type Pair [2]int
@@ -203,7 +205,14 @@ outer:
 					}
 				}
 				for mapping, pairs := range deltasMatched {
-					if len(pairs) < 12 {
+					uniqueMatches := make(map[int]bool)
+					for _, p := range pairs {
+						uniqueMatches[p[0][0]] = true
+						uniqueMatches[p[0][1]] = true
+					}
+					// This should be 12, but is not feasible for some reason.
+					// We are short one match here.
+					if len(uniqueMatches) < 11 {
 						// Keep looking for other orientations that might match.
 						continue
 					}
@@ -214,15 +223,26 @@ outer:
 					pair := pairs[0]
 					referenceOne := aligned.Seen[pair[0][0]].Map(*aligned.AxisMap).Add(*aligned.Position)
 					referenceTwo := aligned.Seen[pair[0][1]].Map(*aligned.AxisMap).Add(*aligned.Position)
-					mineOne := s.Seen[pair[1][0]].Map(*s.AxisMap)
-					mineTwo := s.Seen[pair[1][1]].Map(*s.AxisMap)
 
-					position := referenceOne.Sub(mineOne)
-					if position.Add(mineTwo) != referenceTwo {
-						position = referenceTwo.Sub(mineOne)
-						if position.Add(mineTwo) != referenceOne {
-							fmt.Printf("inconsistent position: %s, %s\n", position, referenceOne.Sub(mineTwo))
+					var position Coord3
+					for k := 0; k <= 1; k++ {
+						mineOne := s.Seen[pair[1][0]].Map(*s.AxisMap)
+						mineTwo := s.Seen[pair[1][1]].Map(*s.AxisMap)
+
+						position = referenceOne.Sub(mineOne)
+						if position.Add(mineTwo) == referenceTwo {
+							break
 						}
+						position = referenceTwo.Sub(mineOne)
+						if position.Add(mineTwo) == referenceOne {
+							break
+						}
+						if k == 1 {
+							fmt.Println("Could not find consistent position")
+							fmt.Println(referenceOne, referenceTwo)
+							return
+						}
+						mapped = aligned.AxisMap.Map(mapping.Invert())
 					}
 					s.Position = &position
 
@@ -240,11 +260,40 @@ outer:
 		// We have not found any new beacon matches, we are probably done (or stuck).
 		break
 	}
-	for _, s := range scanners {
+	for i, s := range scanners {
 		if s.AxisMap == nil || s.Position == nil {
-			fmt.Println("Incomplete mapping, result will be an undercount.")
+			fmt.Printf("Incomplete mapping for %d, result will be an undercount.\n", i)
 		}
-		fmt.Println(*s.Position)
 	}
 	fmt.Println(len(beacons))
+
+	var maxDistance int
+	for i, n := range scanners {
+		for j, m := range scanners {
+			if j >= i {
+				break
+			}
+			diff := n.Position.Sub(*m.Position)
+			var sum int
+			if diff.X > 0 {
+				sum += diff.X
+			} else {
+				sum -= diff.X
+			}
+			if diff.Y > 0 {
+				sum += diff.Y
+			} else {
+				sum -= diff.Y
+			}
+			if diff.Z > 0 {
+				sum += diff.Z
+			} else {
+				sum -= diff.Z
+			}
+			if sum > maxDistance {
+				maxDistance = sum
+			}
+		}
+	}
+	fmt.Println(maxDistance)
 }
