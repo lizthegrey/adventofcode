@@ -6,10 +6,11 @@ import (
 	"fmt"
 	"io/ioutil"
 	"strings"
+	"time"
 
 	"github.com/lizthegrey/adventofcode/2021/trace"
 	"go.opentelemetry.io/otel"
-	// "go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/attribute"
 )
 
 var inputFile = flag.String("inputFile", "inputs/day18.input", "Relative file path to use as input.")
@@ -23,7 +24,7 @@ type Pair struct {
 	Parent        *Pair
 }
 
-func Sum(n, m *Pair) *Pair {
+func Sum(ctx context.Context, n, m *Pair) *Pair {
 	ret := Pair{
 		Left:   nil,
 		Right:  nil,
@@ -34,7 +35,7 @@ func Sum(n, m *Pair) *Pair {
 	ret.LeftP.Parent = &ret
 	ret.RightP.Parent = &ret
 
-	ret.Reduce()
+	ret.Reduce(ctx)
 	return &ret
 }
 
@@ -64,10 +65,15 @@ func (p *Pair) ExpandDepth() *Pair {
 	return p
 }
 
-func (p *Pair) Reduce() {
+func (p *Pair) Reduce(ctx context.Context) {
+	ctx, span := tr.Start(ctx, "reduce")
+	defer span.End()
+
+	var explodeCount, splitCount int
 	for {
 		actionPerformed := p.Explode()
 		if actionPerformed {
+			explodeCount++
 			continue
 		}
 		actionPerformed = p.Split()
@@ -75,8 +81,11 @@ func (p *Pair) Reduce() {
 			// We are finished.
 			break
 		}
+		splitCount++
 		// Otherwise loop around again.
 	}
+	span.SetAttributes(attribute.Int("explodes", explodeCount))
+	span.SetAttributes(attribute.Int("splits", splitCount))
 }
 
 func (p *Pair) StashUpLeft(value int) {
@@ -223,7 +232,12 @@ func (p Pair) Print() {
 }
 
 // Parse recursively parses input strings into Pairs.
-func Parse(s string, depth int, parent *Pair) *Pair {
+func Parse(ctx context.Context, s string, depth int, parent *Pair) *Pair {
+	ctx, span := tr.Start(ctx, "parse")
+	defer span.End()
+	span.SetAttributes(attribute.String("input", s))
+	span.SetAttributes(attribute.Int("depth", depth))
+
 	if s[0] != byte('[') || s[len(s)-1] != byte(']') {
 		fmt.Printf("Invalid input %s\n", s)
 		return nil
@@ -246,7 +260,7 @@ func Parse(s string, depth int, parent *Pair) *Pair {
 			}
 			positionAfterComma = i + 2
 		}
-		ret.LeftP = Parse(s[1:positionAfterComma-1], depth+1, &ret)
+		ret.LeftP = Parse(ctx, s[1:positionAfterComma-1], depth+1, &ret)
 	} else {
 		// This is just a plain number. They are always single digit.
 		left := int(s[1] - byte('0'))
@@ -259,7 +273,7 @@ func Parse(s string, depth int, parent *Pair) *Pair {
 		positionAfterComma = 3
 	}
 	if s[positionAfterComma] == byte('[') {
-		ret.RightP = Parse(s[positionAfterComma:len(s)-1], depth+1, &ret)
+		ret.RightP = Parse(ctx, s[positionAfterComma:len(s)-1], depth+1, &ret)
 	} else {
 		// This is just a plain number, single digit.
 		right := int(s[positionAfterComma] - byte('0'))
@@ -277,6 +291,7 @@ func main() {
 
 	ctx := context.Background()
 	hny, tp := trace.InitializeTracing(ctx)
+	defer time.Sleep(2 * time.Second)
 	defer hny.Shutdown(ctx)
 	defer tp.Shutdown(ctx)
 
@@ -290,29 +305,37 @@ func main() {
 
 	var numbers []*Pair
 	for _, s := range split {
-		numbers = append(numbers, Parse(s, 0, nil))
+		ctx, span := tr.Start(context.Background(), "parseOneLine")
+		numbers = append(numbers, Parse(ctx, s, 0, nil))
+		span.End()
 	}
 
 	sum := numbers[0]
+	ctx, span := tr.Start(context.Background(), "partA")
 	for i, n := range numbers {
 		if i == 0 {
 			continue
 		}
-		sum = Sum(sum, n)
+		sum = Sum(ctx, sum, n)
 	}
 	fmt.Println(sum.Magnitude())
+	span.End()
 
 	var maxMagnitude int
+	ctx, bSpan := tr.Start(context.Background(), "partB")
 	for i, x := range split {
 		for j, y := range split {
 			if i == j {
 				continue
 			}
-			magnitude := Sum(Parse(x, 0, nil), Parse(y, 0, nil)).Magnitude()
+			ctx, sp := tr.Start(ctx, "subProblem")
+			magnitude := Sum(ctx, Parse(ctx, x, 0, nil), Parse(ctx, y, 0, nil)).Magnitude()
 			if magnitude > maxMagnitude {
 				maxMagnitude = magnitude
 			}
+			sp.End()
 		}
 	}
+	bSpan.End()
 	fmt.Println(maxMagnitude)
 }
