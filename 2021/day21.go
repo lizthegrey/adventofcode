@@ -102,7 +102,7 @@ func main() {
 	fmt.Println(rolls * losingScore)
 
 	initial := State{
-		Players:    [2]Player{{0, p1}, {0, p2}},
+		Players:    [2]Player{{p1, 0}, {p2, 0}},
 		NextPlayer: 0,
 	}
 	pm := make(PathMap)
