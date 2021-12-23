@@ -53,7 +53,7 @@ func (a Amphipod) MovementCost() int {
 	}
 }
 
-func (a Amphipod) DestinationColumn() int {
+func (a Amphipod) DestinationColumn() int8 {
 	switch a.Type {
 	case A:
 		return 3
@@ -70,16 +70,16 @@ func (a Amphipod) DestinationColumn() int {
 }
 
 type Coord struct {
-	R, C int
+	R, C int8
 }
 
 type World struct {
-	Pieces   [12]Amphipod
-	HallPass int
+	Pieces   [16]Amphipod
+	HallPass int8
 }
 
 func (w World) GetPieces() []Amphipod {
-	pieces := make([]Amphipod, 0, 12)
+	pieces := make([]Amphipod, 0, 16)
 	for _, v := range w.Pieces {
 		if v.Type == Undef {
 			continue
@@ -99,11 +99,11 @@ func (w World) RouteClear(whoami Amphipod, passable Terrain) bool {
 	desiredColumn := whoami.DestinationColumn()
 	// Try moving in a straight line, without moving any other pieces.
 	// First, try moving left or right until we get to the column we want.
-	var delta int
+	var delta int8
 	if desiredColumn > c {
-		delta = 1
+		delta = int8(1)
 	} else if desiredColumn < c {
-		delta = -1
+		delta = int8(-1)
 	}
 	for col := c; col != desiredColumn; col += delta {
 		if col == c {
@@ -116,10 +116,17 @@ func (w World) RouteClear(whoami Amphipod, passable Terrain) bool {
 		}
 	}
 	// Verify there are no mismatched pieces in our destination.
-	for row := 2; row <= 3; row++ {
-		if _, slot := w.PassableOrContents(Coord{row, desiredColumn}, passable); slot != nil && slot.Type != whoami.Type {
+	row := int8(2)
+	for {
+		empty, contents := w.PassableOrContents(Coord{row, desiredColumn}, passable)
+		if !empty && contents == nil {
+			// We've hit the bottom and can break out to return our true.
+			break
+		}
+		if contents != nil && contents.Type != whoami.Type {
 			return false
 		}
+		row++
 	}
 	return true
 }
@@ -131,18 +138,23 @@ func (w World) HasReachedDestination(whoami Amphipod, passable Terrain) bool {
 		// Wrong column, or still in the hallway.
 		return false
 	}
-	if r == 3 {
-		// We've pushed all the way down, and we're in the right place.
-		return true
-	}
-	if w.Passable(Coord{3, c}, passable) {
-		// There is empty space below us, keep moving!
-		return false
-	}
-	// The slot below us is full
-	if _, contents := w.PassableOrContents(Coord{3, c}, passable); contents.Type != whoami.Type {
-		// We're going to need to move up to let someone out.
-		return false
+	row := r
+	for {
+		row++
+		empty, contents := w.PassableOrContents(Coord{row, c}, passable)
+		if !empty && contents == nil {
+			// We're packed to the very bottom, so we're good.
+			break
+		}
+		if empty {
+			// There is empty space below us, keep moving!
+			return false
+		}
+		// A slot below us is full, check whether it matches us.
+		if contents.Type != whoami.Type {
+			// We're going to need to move up to let someone out.
+			return false
+		}
 	}
 	// Yup, we're the last one in!
 	return true
@@ -228,7 +240,7 @@ func (w World) GenerateMoves(passable Terrain) ([]World, []int) {
 
 		// Only allow changing the HallPass holder if the route is clear to a
 		// target space for the potential new HallPass holder.
-		if w.HallPass != -1 && w.HallPass != i {
+		if w.HallPass != int8(-1) && w.HallPass != int8(i) {
 			if src.Loc.R == 1 && !w.RouteClear(src, passable) {
 				// We're stuck in place in the hallway for now, because there's no
 				// route to our burrow.
@@ -243,11 +255,11 @@ func (w World) GenerateMoves(passable Terrain) ([]World, []int) {
 			// We need to null the HallPass holder (to -1) if the last
 			// HallPass holder is no longer in the hall.
 			if after.HasReachedDestination(dst, passable) {
-				after.HallPass = -1
+				after.HallPass = int8(-1)
 			}
 			if dst.Loc.R == 1 {
 				// We've moved in the hallway, so lock everyone else out.
-				after.HallPass = i
+				after.HallPass = int8(i)
 			}
 			moves = append(moves, after)
 			costs = append(costs, src.MovementCost())
@@ -266,13 +278,13 @@ func (w World) MinCostToSort() int {
 	for _, p := range w.GetPieces() {
 		r := p.Loc.R
 		c := p.Loc.C
-		columnDiff := c - p.DestinationColumn()
+		columnDiff := int(c - p.DestinationColumn())
 		if columnDiff != 0 {
 			// We need to move it up, over, and down.
 			if columnDiff < 0 {
 				columnDiff = -columnDiff
 			}
-			cost += p.MovementCost() * (1 + (r - 1) + columnDiff)
+			cost += p.MovementCost() * (1 + (int(r) - 1) + columnDiff)
 		} else if r == 1 {
 			// the cost is just the cost to slot it down into the desired location.
 			cost += p.MovementCost()
@@ -306,6 +318,7 @@ func main() {
 	piecesFound := 0
 	for r, line := range split {
 		for c, v := range line {
+			loc := Coord{int8(r), int8(c)}
 			var kind AmphipodType
 			switch v {
 			case '#':
@@ -314,7 +327,7 @@ func main() {
 				// Not passable, don't put anything into passable map.
 				continue
 			case '.':
-				passable[Coord{r, c}] = true
+				passable[loc] = true
 				continue
 			case 'A':
 				kind = A
@@ -327,8 +340,8 @@ func main() {
 			default:
 				fmt.Println("Encountered unknown board character.")
 			}
-			initial.Pieces[piecesFound] = Amphipod{Coord{r, c}, kind}
-			passable[Coord{r, c}] = true
+			initial.Pieces[piecesFound] = Amphipod{loc, kind}
+			passable[loc] = true
 			piecesFound++
 		}
 	}
@@ -340,6 +353,32 @@ func main() {
 		return
 	}
 	defer pprof.StopCPUProfile()
+	fmt.Println(AStar(initial, passable))
+
+	// Manipulate board for part b.
+	// Add additional passable tiles.
+	for r := 4; r <= 5; r++ {
+		for c := 3; c <= 9; c += 2 {
+			passable[Coord{int8(r), int8(c)}] = true
+		}
+	}
+	// Move down amphipods 4-7 by 2 rows.
+	for i := range initial.Pieces {
+		if i < 4 || i >= 8 {
+			continue
+		}
+		initial.Pieces[i].Loc.R += 2
+	}
+	// And also insert additional rows.
+	//   #D#C#B#A#
+	//   #D#B#A#C#
+	idx := 8
+	for r, row := range [2][4]AmphipodType{{D, C, B, A}, {D, B, A, C}} {
+		for c, kind := range row {
+			initial.Pieces[idx] = Amphipod{Coord{int8(3 + r), int8(3 + 2*c)}, kind}
+			idx++
+		}
+	}
 	fmt.Println(AStar(initial, passable))
 }
 
