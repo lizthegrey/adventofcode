@@ -96,6 +96,10 @@ func (w World) RouteClear(coord Coord) bool {
 		delta = -1
 	}
 	for col := c; col != desiredColumn; col += delta {
+		if col == c {
+			// Ignore ourself.
+			continue
+		}
 		if w.Tiles[r][col] != Empty {
 			// Something's in the way!
 			return false
@@ -196,7 +200,8 @@ func (w World) GenerateMoves() ([]World, []int) {
 		// target space for the potential new HallPass holder.
 		if w.HallPass != -1 && w.HallPass != i {
 			if src.R == 1 && !w.RouteClear(src) {
-				// We're stuck in place in the hallway for now.
+				// We're stuck in place in the hallway for now, because there's no
+				// route to our burrow.
 				continue
 			}
 		}
