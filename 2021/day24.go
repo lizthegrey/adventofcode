@@ -14,6 +14,8 @@ import (
 )
 
 var inputFile = flag.String("inputFile", "inputs/day24.input", "Relative file path to use as input.")
+var candidate = flag.Uint64("candidate", 99999999999999, "Seed candidate to use.")
+var debug = flag.Bool("debug", false, "Whether to print debug output.")
 
 var tr = otel.Tracer("day24")
 
@@ -22,7 +24,7 @@ type Instruction func(*Computer)
 type Computer struct {
 	Inputs [14]int
 	Instrs []Instruction
-	Regs   [4]int
+	Regs   [4]uint64
 	PC     int
 	InputC int
 }
@@ -78,7 +80,7 @@ func main() {
 		switch parts[0] {
 		case "inp":
 			instr = func(c *Computer) {
-				c.Regs[target] = c.Inputs[c.InputC]
+				c.Regs[target] = uint64(c.Inputs[c.InputC])
 				c.InputC++
 			}
 		case "add":
@@ -86,7 +88,7 @@ func main() {
 				if src != Undef {
 					c.Regs[target] += c.Regs[src]
 				} else {
-					c.Regs[target] += immediate
+					c.Regs[target] += uint64(immediate)
 				}
 			}
 		case "mul":
@@ -94,7 +96,7 @@ func main() {
 				if src != Undef {
 					c.Regs[target] *= c.Regs[src]
 				} else {
-					c.Regs[target] *= immediate
+					c.Regs[target] *= uint64(immediate)
 				}
 			}
 		case "div":
@@ -102,7 +104,7 @@ func main() {
 				if src != Undef {
 					c.Regs[target] /= c.Regs[src]
 				} else {
-					c.Regs[target] /= immediate
+					c.Regs[target] /= uint64(immediate)
 				}
 			}
 		case "mod":
@@ -110,7 +112,7 @@ func main() {
 				if src != Undef {
 					c.Regs[target] %= c.Regs[src]
 				} else {
-					c.Regs[target] %= immediate
+					c.Regs[target] %= uint64(immediate)
 				}
 			}
 		case "eql":
@@ -119,7 +121,7 @@ func main() {
 				if src != Undef {
 					equal = c.Regs[target] == c.Regs[src]
 				} else {
-					equal = c.Regs[target] == immediate
+					equal = c.Regs[target] == uint64(immediate)
 				}
 				if equal {
 					c.Regs[target] = 1
@@ -131,32 +133,16 @@ func main() {
 		computer.Instrs = append(computer.Instrs, instr)
 	}
 
-	candidates := []uint64{
-		99999999999999,
+	v := *candidate
+	for i := 13; i >= 0; i-- {
+		computer.Inputs[i] = int(v % 10)
+		v /= 10
 	}
-	var highestSuccess uint64
-	for {
-		v := candidates[0]
-		candidates = candidates[1:]
-		myCmp := computer
-		for i := 13; i >= 0; i-- {
-			myCmp.Inputs[i] = int(v % 10)
-			v /= 10
-		}
-		for myCmp.Step() {
-		}
-		success := myCmp.Regs[Z] == 0
-		if success && highestSuccess < v {
-			highestSuccess = v
-			break
-		}
-		if !success {
-			candidate := v / 2
-			candidates = append(candidates, candidate)
-		} else {
-			candidate := v/2 + highestSuccess + 1
-			candidates = append(candidates, candidate)
+	for computer.Step() {
+		if *debug {
+			fmt.Println(computer.Regs)
 		}
 	}
-	fmt.Println(highestSuccess)
+	success := computer.Regs[Z] == 0
+	fmt.Println(success)
 }
