@@ -17,6 +17,7 @@ import (
 )
 
 var inputFile = flag.String("inputFile", "inputs/day23.input", "Relative file path to use as input.")
+var debug = flag.Bool("debug", false, "Whether to print debug output.")
 
 var tr = otel.Tracer("day23")
 
@@ -76,6 +77,23 @@ type Coord struct {
 type World struct {
 	Pieces   [16]Amphipod
 	HallPass int8
+}
+
+func (w World) PrintBoard(passable Terrain) {
+	for r := 0; r < 7; r++ {
+		for c := 0; c < 13; c++ {
+			loc := Coord{int8(r), int8(c)}
+			valid, contents := w.PassableOrContents(loc, passable)
+			if contents != nil {
+				fmt.Printf("%s", []byte{byte('A') + byte(contents.Type-1)})
+			} else if valid {
+				fmt.Printf(".")
+			} else {
+				fmt.Printf("#")
+			}
+		}
+		fmt.Println()
+	}
 }
 
 func (w World) GetPieces() []Amphipod {
@@ -177,6 +195,63 @@ func (w World) PassableOrContents(coord Coord, passable Terrain) (bool, *Amphipo
 	return true, nil
 }
 
+type FastMove struct {
+	A Amphipod
+	C int
+}
+
+func (w World) CanStopHere(src, proposed Amphipod, passable Terrain) bool {
+	r := proposed.Loc.R
+	c := proposed.Loc.C
+	if r == 1 {
+		if c == 3 || c == 5 || c == 7 || c == 9 {
+			// It is not valid to stop in the doorway.
+			return false
+		} else {
+			// It is valid to stop in between doorways or in an alcove, if and only
+			// if I did not start on row 1; even if I hold a hall pass, once I stop
+			// I can't move within the hallway, only go to my burrow.
+			return src.Loc.R != 1
+		}
+	} else {
+		// We're in a burrow. In general, we can't stop here once we've started
+		// moving, unless this is at the very bottom of our terminal burrow.
+		return w.HasReachedDestination(proposed, passable)
+	}
+}
+
+// FastAllowedMovements fast-forwards a string of movements to a valid landing
+// position, rather than returning one step at a time. We recursively use
+// AllowedMovements to move ourselves, and place any landing position we find
+// into our return list.
+func (w World) FastAllowedMovements(src Amphipod, passable Terrain) ([]Amphipod, []int) {
+	var ret []Amphipod
+	var costs []int
+
+	open := []FastMove{{src, 0}}
+	visited := make(map[Amphipod]bool)
+	for len(open) != 0 {
+		popped := open[0]
+		open = open[1:]
+
+		if visited[popped.A] {
+			continue
+		}
+		visited[popped.A] = true
+
+		if src != popped.A && w.CanStopHere(src, popped.A, passable) {
+			ret = append(ret, popped.A)
+			costs = append(costs, popped.C)
+			// But we still have to search neighbors of ourself just to be safe.
+		}
+
+		for _, dst := range w.AllowedMovements(popped.A, passable) {
+			open = append(open, FastMove{dst, popped.C + popped.A.MovementCost()})
+		}
+	}
+	return ret, costs
+}
+
 func (w World) AllowedMovements(a Amphipod, passable Terrain) []Amphipod {
 	// Pieces can move up, down, left, right.
 	// Pieces also cannot stop above a column, but we'll deal with
@@ -248,7 +323,8 @@ func (w World) GenerateMoves(passable Terrain) ([]World, []int) {
 			}
 		}
 
-		for _, dst := range w.AllowedMovements(src, passable) {
+		dsts, dstCosts := w.FastAllowedMovements(src, passable)
+		for j, dst := range dsts {
 			// Remove the tile from src, add it to dst.
 			after := w
 			after.Pieces[i] = dst
@@ -262,7 +338,7 @@ func (w World) GenerateMoves(passable Terrain) ([]World, []int) {
 				after.HallPass = int8(i)
 			}
 			moves = append(moves, after)
-			costs = append(costs, src.MovementCost())
+			costs = append(costs, dstCosts[j])
 		}
 	}
 
@@ -379,6 +455,9 @@ func main() {
 			idx++
 		}
 	}
+	if *debug {
+		fmt.Println("\n-------")
+	}
 	fmt.Println(AStar(initial, passable))
 }
 
@@ -423,6 +502,7 @@ func AStar(src World, passable Terrain) int {
 	fScore := CostMap{
 		src: src.MinCostToSort(),
 	}
+	from := make(map[World]*World)
 	workList := HeapQueue{&[]World{src}, fScore, make(CostMap)}
 	heap.Init(&workList)
 
@@ -431,6 +511,19 @@ func AStar(src World, passable Terrain) int {
 		current := heap.Pop(&workList).(World)
 
 		if current.MinCostToSort() == 0 {
+			if *debug {
+				totalCost := gScore[current]
+				prev := *from[current]
+				current.PrintBoard(passable)
+				for prev != src {
+					fmt.Printf("Move cost %d (%d cumulative) to get from\n\n", totalCost-gScore[prev], totalCost)
+					prev.PrintBoard(passable)
+					totalCost = gScore[prev]
+					prev = *from[prev]
+				}
+				fmt.Printf("Move cost %d (%d cumulative) to get from\n\n", totalCost, totalCost)
+				prev.PrintBoard(passable)
+			}
 			return gScore[current]
 		}
 		moves, costs := current.GenerateMoves(passable)
@@ -439,6 +532,7 @@ func AStar(src World, passable Terrain) int {
 			if previousScore, ok := gScore[after]; !ok || proposedScore < previousScore {
 				gScore[after] = proposedScore
 				fScore[after] = proposedScore + after.MinCostToSort()
+				from[after] = &current
 				if pos := workList.Position(after); pos == -1 {
 					heap.Push(&workList, after)
 				} else {
