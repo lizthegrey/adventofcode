@@ -12,8 +12,7 @@ var inputFile = flag.String("inputFile", "inputs/day07.input", "Relative file pa
 
 type dir struct {
 	parent   *dir
-	children map[string]*dir
-	leaves   map[string]int
+	children []*dir
 	size     int
 }
 
@@ -33,13 +32,7 @@ func main() {
 	contents := string(bytes)
 	split := strings.Split(contents, "\n")
 
-	var cwd []string
-	root := dir{
-		parent:   nil,
-		children: make(map[string]*dir),
-		leaves:   make(map[string]int),
-		size:     0,
-	}
+	var root dir
 	cur := &root
 	for _, s := range split[1 : len(split)-1] {
 		tokens := strings.Split(s, " ")
@@ -48,11 +41,13 @@ func main() {
 			case "cd":
 				target := tokens[2]
 				if target == ".." {
-					cwd = cwd[:len(cwd)-1]
 					cur = cur.parent
 				} else {
-					cwd = append(cwd, target)
-					cur = cur.children[target]
+					// Lazy-create the directory once we recurse into it.
+					var child dir
+					child.parent = cur
+					cur.children = append(cur.children, &child)
+					cur = &child
 				}
 			case "ls":
 				// This will be handled by the else case.
@@ -64,21 +59,15 @@ func main() {
 		} else {
 			// This is the result of listing a directory.
 			if tokens[0] == "dir" {
-				cur.children[tokens[1]] = &dir{
-					parent:   cur,
-					children: make(map[string]*dir),
-					leaves:   make(map[string]int),
-					size:     0,
-				}
+				// Created when we recurse into it. Do nothing.
 			} else {
 				size, err := strconv.Atoi(tokens[0])
 				if err != nil {
 					fmt.Printf("Failed to parse size: %v\n", err)
 					return
 				}
-				cur.leaves[tokens[1]] = size
 				update := cur
-				for i := 0; i <= len(cwd); i++ {
+				for update != nil {
 					update.size += size
 					update = update.parent
 				}
