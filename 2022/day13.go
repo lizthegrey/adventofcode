@@ -12,8 +12,7 @@ import (
 var inputFile = flag.String("inputFile", "inputs/day13.input", "Relative file path to use as input.")
 
 type elem struct {
-	parent   *elem
-	children []*elem
+	children []elem
 	leaf     int
 }
 
@@ -37,9 +36,9 @@ func (l elem) compare(r elem) *bool {
 	// Convert the case of mismatched input types to both being lists.
 	// Note: this is safe to do because it's an value receiver on elem not pointer on *elem.
 	if l.children == nil && r.children != nil {
-		l.children = []*elem{{leaf: l.leaf}}
+		l.children = []elem{{leaf: l.leaf}}
 	} else if l.children != nil && r.children == nil {
-		r.children = []*elem{{leaf: r.leaf}}
+		r.children = []elem{{leaf: r.leaf}}
 	}
 
 	if l.children == nil && r.children == nil {
@@ -58,7 +57,7 @@ func (l elem) compare(r elem) *bool {
 				return &ret
 			}
 			// Compare the item and return the result, if any.
-			intermediate := l.children[i].compare(*r.children[i])
+			intermediate := l.children[i].compare(r.children[i])
 			if intermediate != nil {
 				return intermediate
 			}
@@ -74,21 +73,17 @@ func (l elem) compare(r elem) *bool {
 }
 
 func NewElem(input string) *elem {
-	ret := elem{
-		children: make([]*elem, 0),
-	}
-	current := &ret
+	stack := []elem{{children: make([]elem, 0)}}
 	for i := 1; i < len(input)-1; i++ {
 		switch input[i] {
 		case '[':
 			child := elem{
-				parent:   current,
-				children: make([]*elem, 0),
+				children: make([]elem, 0),
 			}
-			current.children = append(current.children, &child)
-			current = &child
+			stack = append(stack, child)
 		case ']':
-			current = current.parent
+			stack[len(stack)-2].children = append(stack[len(stack)-2].children, stack[len(stack)-1])
+			stack = stack[:len(stack)-1]
 		case ',':
 			// Do nothing, the existing code handles this.
 		default:
@@ -102,14 +97,14 @@ func NewElem(input string) *elem {
 				}
 			}
 			val, _ := strconv.Atoi(input[i:end])
-			current.children = append(current.children, &elem{
+			stack[len(stack)-1].children = append(stack[len(stack)-1].children, elem{
 				leaf: val,
 			})
 			// Prepare to resume reading input from the next value.
 			i = end - 1
 		}
 	}
-	return &ret
+	return &stack[0]
 }
 
 func main() {
