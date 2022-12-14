@@ -74,25 +74,17 @@ func aStar(r terrain, src, dst coord) int {
 	}
 	workList := HeapQueue{&[]coord{src}, fScore, make(terrain)}
 	heap.Init(&workList)
-	history := make(map[coord]coord)
 
 	for len(*workList.elems) != 0 {
 		// Pop the current node off the worklist.
 		current := heap.Pop(&workList).(coord)
 
 		if current == dst {
-			// Reconstruct the score by retracing our path to start.
-			score := 0
-			for current != src {
-				score += 1
-				current = history[current]
-			}
-			return score
+			return gScore[dst]
 		}
 		for _, n := range r.neighbours(current) {
 			proposedScore := gScore[current] + 1
 			if previousScore, ok := gScore[n]; !ok || proposedScore < previousScore {
-				history[n] = current
 				gScore[n] = proposedScore
 				fScore[n] = proposedScore + n.minDst(dst)
 				if pos := workList.Position(n); pos == -1 {
