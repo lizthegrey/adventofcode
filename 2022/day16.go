@@ -37,9 +37,16 @@ func (ms moveSeq) toMemoKey() string {
 	return strings.Join(tmp, ",")
 }
 
-func (e edges) moves(ms, os moveSeq, rooms board) []moveSeq {
+func (e edges) findBest(ms, os moveSeq, rooms board, scoring func(moveSeq) int) int {
+	// Allocate enough space in the array.
+	if cap(ms.moves) < len(e)-1 {
+		buf := make([]string, len(ms.moves), len(e)-1)
+		copy(buf, ms.moves)
+		ms.moves = buf
+	}
+
 	last := ms.moves[len(ms.moves)-1]
-	ret := make([]moveSeq, 0, len(e[last])+1-len(ms.moves))
+	var best int
 
 	seen := make(map[string]bool)
 	for _, pos := range ms.moves {
@@ -49,22 +56,36 @@ func (e edges) moves(ms, os moveSeq, rooms board) []moveSeq {
 		// Don't duplicate any work our other sequence did.
 		seen[pos] = true
 	}
+	leaf := true
+	oldLen := len(ms.moves)
 	for next := range e[last] {
 		proposedTurns := ms.elapsed + e[last][next] + 1
 		if seen[next] || proposedTurns > maxTurns {
 			// Don't propose backtracking or taking longer than 30 turns.
 			continue
 		}
-		sub := make([]string, len(ms.moves)+1)
-		copy(sub, ms.moves)
-		sub[len(ms.moves)] = next
-		ret = append(ret, moveSeq{
-			moves:   sub,
+		leaf = false
+		// Reslice.
+		ms.moves = ms.moves[0 : oldLen+1]
+		ms.moves[oldLen] = next
+		score := e.findBest(moveSeq{
+			moves:   ms.moves,
 			elapsed: proposedTurns,
 			score:   ms.score + (maxTurns-proposedTurns)*rooms[next].flow,
-		})
+		}, os, rooms, scoring)
+		if score > best {
+			best = score
+		}
 	}
-	return ret
+	// Restore previous slicing.
+	ms.moves = ms.moves[0:oldLen]
+	if leaf {
+		if scoring != nil {
+			return scoring(ms)
+		}
+		return ms.score
+	}
+	return best
 }
 
 func main() {
@@ -121,62 +142,23 @@ func main() {
 	}
 
 	// Part A
-	var best int
-	q := []moveSeq{{moves: []string{firstRoom}}}
-	// TODO: this would benefit from being recursive/DFS instead to reuse the
-	// same moves array prefix and not need to copy() it to avoid stomping it.
-	for len(q) > 0 {
-		head := q[0]
-		q = q[1:]
-
-		moves := weights.moves(head, moveSeq{}, rooms)
-		// Only check leaf nodes, since score can always improve from adding moves if possible.
-		if len(moves) == 0 {
-			if head.score > best {
-				best = head.score
-			}
-		}
-		q = append(q, moves...)
-	}
-	fmt.Println(best)
+	initial := moveSeq{moves: []string{firstRoom}}
+	fmt.Println(weights.findBest(initial, moveSeq{}, rooms, nil))
 
 	// Part B
-	best = 0
-	q = []moveSeq{{moves: []string{firstRoom}, elapsed: 4}}
+	initial = moveSeq{moves: []string{firstRoom}, elapsed: 4}
 	memo := make(map[string]int)
-	for len(q) > 0 {
-		head := q[0]
-		q = q[1:]
-
-		moves := weights.moves(head, moveSeq{}, rooms)
-		// Only check leaf nodes, since score can always improve from adding moves if possible.
-		if len(moves) == 0 {
-			key := head.toMemoKey()
-			eleScore, ok := memo[key]
-			if !ok {
-				// Do the sub-problem with many fewer nodes. This could be memoized
-				// because it doesn't care what the order of nodes visited by me is,
-				// only which it should consider off limits.
-				eleQ := []moveSeq{{moves: []string{firstRoom}, elapsed: 4}}
-				for len(eleQ) > 0 {
-					eleHead := eleQ[0]
-					eleQ = eleQ[1:]
-					eleMoves := weights.moves(eleHead, head, rooms)
-					if len(eleMoves) == 0 {
-						if eleHead.score > eleScore {
-							eleScore = eleHead.score
-						}
-					}
-					eleQ = append(eleQ, eleMoves...)
-				}
-				memo[key] = eleScore
-			}
-			totalScore := head.score + eleScore
-			if totalScore > best {
-				best = totalScore
-			}
+	fmt.Println(weights.findBest(initial, moveSeq{}, rooms, func(ms moveSeq) int {
+		key := ms.toMemoKey()
+		eleScore, ok := memo[key]
+		if !ok {
+			// Do the sub-problem with many fewer nodes. This could be memoized
+			// because it doesn't care what the order of nodes visited by me is,
+			// only which it should consider off limits.
+			ele := moveSeq{moves: []string{firstRoom}, elapsed: 4}
+			eleScore = weights.findBest(ele, moveSeq{}, rooms, nil)
+			memo[key] = eleScore
 		}
-		q = append(q, moves...)
-	}
-	fmt.Println(best)
+		return ms.score + eleScore
+	}))
 }
