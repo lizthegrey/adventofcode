@@ -42,7 +42,7 @@ func (e edges) score(b board, ms moveSeq) int {
 	return sum
 }
 
-func (e edges) moves(ms moveSeq) []moveSeq {
+func (e edges) moves(ms, os moveSeq) []moveSeq {
 	last := ms[len(ms)-1]
 	ret := make([]moveSeq, 0, len(e[last])+1-len(ms))
 
@@ -55,6 +55,10 @@ func (e edges) moves(ms moveSeq) []moveSeq {
 		turns := e[prev][cur] + 1
 		elapsed += turns
 		prev = cur
+	}
+	for _, v := range os {
+		// Don't duplicate any work our other sequence did.
+		seen[v] = true
 	}
 	for next := range e[last] {
 		if seen[next] || elapsed+e[last][next]+1 > maxTurns {
@@ -123,14 +127,13 @@ func main() {
 	}
 
 	// Part A
-	// After that, it's a matter of BFSing all possible paths.
 	var best int
 	q := []moveSeq{{firstRoom}}
 	for len(q) > 0 {
 		head := q[0]
 		q = q[1:]
 
-		moves := weights.moves(head)
+		moves := weights.moves(head, nil)
 		// Only check leaf nodes, since score can always improve from adding moves if possible.
 		if len(moves) == 0 {
 			score := weights.score(rooms, head)
@@ -146,11 +149,43 @@ func main() {
 	// Part B
 	// Now we have two actors, not just one. We'll add 4 to every weight starting from AA
 	// to avoid needing to change any of the other code while accounting for teaching time.
-	// We'll also need a different scoring mechanism that can take two different path lists
-	// and overlay them together.
 	for k := range weights[firstRoom] {
 		weights[firstRoom][k] += 4
 	}
-	// Trying to think of if there's a good way to reduce the search space to not need to
-	// exhaustively search every combination.
+
+	best = 0
+	q = []moveSeq{{firstRoom}}
+	for len(q) > 0 {
+		head := q[0]
+		q = q[1:]
+
+		moves := weights.moves(head, nil)
+		// Only check leaf nodes, since score can always improve from adding moves if possible.
+		if len(moves) == 0 {
+			score := weights.score(rooms, head)
+
+			// Do the sub-problem with many fewer nodes. This could be memoized
+			// because it doesn't care what the order of nodes visited by me is,
+			// only which it should consider off limits.
+			eleQ := []moveSeq{{firstRoom}}
+			for len(eleQ) > 0 {
+				eleHead := eleQ[0]
+				eleQ = eleQ[1:]
+
+				eleMoves := weights.moves(eleHead, head)
+				if len(eleMoves) == 0 {
+					// Both elephant and I have visited as many nodes as possible.
+					// They won't overlap the rooms visited, so just straight add.
+					totalScore := score + weights.score(rooms, eleHead)
+					if totalScore > best {
+						best = totalScore
+					}
+				}
+				eleQ = append(eleQ, eleMoves...)
+			}
+		}
+		q = append(q, moves...)
+	}
+
+	fmt.Println(best)
 }
