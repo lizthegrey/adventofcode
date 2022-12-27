@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -24,6 +25,13 @@ type board map[string]room
 type edges map[string]map[string]int
 
 type moveSeq []string
+
+func (ms moveSeq) toMemoKey() string {
+	tmp := make(moveSeq, len(ms))
+	copy(tmp, ms)
+	sort.Strings(tmp)
+	return strings.Join(tmp, ",")
+}
 
 func (e edges) score(b board, ms moveSeq) int {
 	var rate, sum, elapsed int
@@ -155,6 +163,7 @@ func main() {
 
 	best = 0
 	q = []moveSeq{{firstRoom}}
+	memo := make(map[string]int)
 	for len(q) > 0 {
 		head := q[0]
 		q = q[1:]
@@ -163,25 +172,30 @@ func main() {
 		// Only check leaf nodes, since score can always improve from adding moves if possible.
 		if len(moves) == 0 {
 			score := weights.score(rooms, head)
-
-			// Do the sub-problem with many fewer nodes. This could be memoized
-			// because it doesn't care what the order of nodes visited by me is,
-			// only which it should consider off limits.
-			eleQ := []moveSeq{{firstRoom}}
-			for len(eleQ) > 0 {
-				eleHead := eleQ[0]
-				eleQ = eleQ[1:]
-
-				eleMoves := weights.moves(eleHead, head)
-				if len(eleMoves) == 0 {
-					// Both elephant and I have visited as many nodes as possible.
-					// They won't overlap the rooms visited, so just straight add.
-					totalScore := score + weights.score(rooms, eleHead)
-					if totalScore > best {
-						best = totalScore
+			key := head.toMemoKey()
+			eleScore, ok := memo[key]
+			if !ok {
+				// Do the sub-problem with many fewer nodes. This could be memoized
+				// because it doesn't care what the order of nodes visited by me is,
+				// only which it should consider off limits.
+				eleQ := []moveSeq{{firstRoom}}
+				for len(eleQ) > 0 {
+					eleHead := eleQ[0]
+					eleQ = eleQ[1:]
+					eleMoves := weights.moves(eleHead, head)
+					if len(eleMoves) == 0 {
+						innerScore := weights.score(rooms, eleHead)
+						if innerScore > eleScore {
+							eleScore = innerScore
+						}
 					}
+					eleQ = append(eleQ, eleMoves...)
 				}
-				eleQ = append(eleQ, eleMoves...)
+				memo[key] = eleScore
+			}
+			totalScore := score + eleScore
+			if totalScore > best {
+				best = totalScore
 			}
 		}
 		q = append(q, moves...)
