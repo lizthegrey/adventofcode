@@ -24,59 +24,45 @@ type board map[string]room
 
 type edges map[string]map[string]int
 
-type moveSeq []string
+type moveSeq struct {
+	moves   []string
+	elapsed int
+	score   int
+}
 
 func (ms moveSeq) toMemoKey() string {
-	tmp := make(moveSeq, len(ms))
-	copy(tmp, ms)
+	tmp := make([]string, len(ms.moves))
+	copy(tmp, ms.moves)
 	sort.Strings(tmp)
 	return strings.Join(tmp, ",")
 }
 
-func (e edges) score(b board, ms moveSeq) int {
-	var rate, sum, elapsed int
-	prev := ms[0]
-	for i := 1; i < len(ms); i++ {
-		cur := ms[i]
-		// Include the time to turn the lever.
-		turns := e[prev][cur] + 1
-		sum += rate * turns
-		elapsed += turns
-		rate += b[cur].flow
-		prev = cur
-	}
-	// After all moves, keep the water gushing for the total 30 turns.
-	sum += rate * (maxTurns - elapsed)
-	return sum
-}
+func (e edges) moves(ms, os moveSeq, rooms board) []moveSeq {
+	last := ms.moves[len(ms.moves)-1]
+	ret := make([]moveSeq, 0, len(e[last])+1-len(ms.moves))
 
-func (e edges) moves(ms, os moveSeq) []moveSeq {
-	last := ms[len(ms)-1]
-	ret := make([]moveSeq, 0, len(e[last])+1-len(ms))
-
-	var elapsed int
 	seen := make(map[string]bool)
-	prev := ms[0]
-	for i := 1; i < len(ms); i++ {
-		cur := ms[i]
-		seen[cur] = true
-		turns := e[prev][cur] + 1
-		elapsed += turns
-		prev = cur
+	for _, pos := range ms.moves {
+		seen[pos] = true
 	}
-	for _, v := range os {
+	for _, pos := range os.moves {
 		// Don't duplicate any work our other sequence did.
-		seen[v] = true
+		seen[pos] = true
 	}
 	for next := range e[last] {
-		if seen[next] || elapsed+e[last][next]+1 > maxTurns {
+		proposedTurns := ms.elapsed + e[last][next] + 1
+		if seen[next] || proposedTurns > maxTurns {
 			// Don't propose backtracking or taking longer than 30 turns.
 			continue
 		}
-		sub := make(moveSeq, len(ms)+1)
-		copy(sub, ms)
-		sub[len(ms)] = next
-		ret = append(ret, sub)
+		sub := make([]string, len(ms.moves)+1)
+		copy(sub, ms.moves)
+		sub[len(ms.moves)] = next
+		ret = append(ret, moveSeq{
+			moves:   sub,
+			elapsed: proposedTurns,
+			score:   ms.score + (maxTurns-proposedTurns)*rooms[next].flow,
+		})
 	}
 	return ret
 }
@@ -136,70 +122,61 @@ func main() {
 
 	// Part A
 	var best int
-	q := []moveSeq{{firstRoom}}
+	q := []moveSeq{{moves: []string{firstRoom}}}
+	// TODO: this would benefit from being recursive/DFS instead to reuse the
+	// same moves array prefix and not need to copy() it to avoid stomping it.
 	for len(q) > 0 {
 		head := q[0]
 		q = q[1:]
 
-		moves := weights.moves(head, nil)
+		moves := weights.moves(head, moveSeq{}, rooms)
 		// Only check leaf nodes, since score can always improve from adding moves if possible.
 		if len(moves) == 0 {
-			score := weights.score(rooms, head)
-			if score > best {
-				best = score
+			if head.score > best {
+				best = head.score
 			}
 		}
 		q = append(q, moves...)
 	}
-
 	fmt.Println(best)
 
 	// Part B
-	// Now we have two actors, not just one. We'll add 4 to every weight starting from AA
-	// to avoid needing to change any of the other code while accounting for teaching time.
-	for k := range weights[firstRoom] {
-		weights[firstRoom][k] += 4
-	}
-
 	best = 0
-	q = []moveSeq{{firstRoom}}
+	q = []moveSeq{{moves: []string{firstRoom}, elapsed: 4}}
 	memo := make(map[string]int)
 	for len(q) > 0 {
 		head := q[0]
 		q = q[1:]
 
-		moves := weights.moves(head, nil)
+		moves := weights.moves(head, moveSeq{}, rooms)
 		// Only check leaf nodes, since score can always improve from adding moves if possible.
 		if len(moves) == 0 {
-			score := weights.score(rooms, head)
 			key := head.toMemoKey()
 			eleScore, ok := memo[key]
 			if !ok {
 				// Do the sub-problem with many fewer nodes. This could be memoized
 				// because it doesn't care what the order of nodes visited by me is,
 				// only which it should consider off limits.
-				eleQ := []moveSeq{{firstRoom}}
+				eleQ := []moveSeq{{moves: []string{firstRoom}, elapsed: 4}}
 				for len(eleQ) > 0 {
 					eleHead := eleQ[0]
 					eleQ = eleQ[1:]
-					eleMoves := weights.moves(eleHead, head)
+					eleMoves := weights.moves(eleHead, head, rooms)
 					if len(eleMoves) == 0 {
-						innerScore := weights.score(rooms, eleHead)
-						if innerScore > eleScore {
-							eleScore = innerScore
+						if eleHead.score > eleScore {
+							eleScore = eleHead.score
 						}
 					}
 					eleQ = append(eleQ, eleMoves...)
 				}
 				memo[key] = eleScore
 			}
-			totalScore := score + eleScore
+			totalScore := head.score + eleScore
 			if totalScore > best {
 				best = totalScore
 			}
 		}
 		q = append(q, moves...)
 	}
-
 	fmt.Println(best)
 }
