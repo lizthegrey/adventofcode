@@ -208,6 +208,9 @@ func (r readings) computeExclusions(rowY int) intervals {
 	for k, v := range r {
 		midpoint := coord{k.x, rowY}
 		deltaX := k.radius(v) - k.radius(midpoint)
+		if deltaX < 0 {
+			continue
+		}
 		exclusions = exclusions.union(interval{k.x - deltaX, k.x + deltaX})
 	}
 	return exclusions
