@@ -11,6 +11,8 @@ import (
 
 var inputFile = flag.String("inputFile", "inputs/day20.input", "Relative file path to use as input.")
 
+const key = 811589153
+
 func main() {
 	flag.Parse()
 	bytes, err := ioutil.ReadFile(*inputFile)
@@ -20,14 +22,22 @@ func main() {
 	contents := string(bytes)
 	input := strings.Split(contents, "\n")
 	input = input[:len(input)-1]
-	ringSize := len(input)
 
+	// Part A
+	fmt.Println(run(input, 1, 1))
+	// Part B
+	fmt.Println(run(input, key, 10))
+}
+
+func run(input []string, k int, rounds int) int {
+	ringSize := len(input)
 	valIndex := make(map[int]*ring.Ring)
 	seqIndex := make([]*ring.Ring, 0, ringSize)
 
 	message := ring.New(ringSize)
 	for _, c := range input {
 		n, err := strconv.Atoi(string(c))
+		n *= k
 		if err != nil {
 			fmt.Printf("Failed to parse %s\n", input)
 			break
@@ -38,15 +48,16 @@ func main() {
 		message = message.Next()
 	}
 
-	// Loop once around through the _original_ sequence.
-	for _, cur := range seqIndex {
-		val := cur.Value.(int)
-		if val == 0 {
-			continue
+	for i := 0; i < rounds; i++ {
+		for _, cur := range seqIndex {
+			val := cur.Value.(int)
+			if val == 0 {
+				continue
+			}
+			prev := cur.Move(-1)
+			prev.Unlink(1)
+			prev.Move(val % (len(seqIndex) - 1)).Link(cur)
 		}
-		prev := cur.Move(-1)
-		prev.Unlink(1)
-		prev.Move(val).Link(cur)
 	}
 
 	var total int
@@ -57,5 +68,5 @@ func main() {
 			total += cur.Value.(int)
 		}
 	}
-	fmt.Println(total)
+	return total
 }
