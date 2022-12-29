@@ -9,6 +9,7 @@ import (
 )
 
 var inputFile = flag.String("inputFile", "inputs/day19.input", "Relative file path to use as input.")
+var debug = flag.Bool("debug", false, "Whether to print debug output & progress.")
 
 type resource int
 
@@ -45,9 +46,12 @@ type state struct {
 	raw  inventory
 }
 
+func (i inventory) hash() int32 {
+	return int32(i[0])<<0 + int32(i[1])<<4 + int32(i[2])<<8 + int32(i[3])<<12
+}
+
 func (s state) hash() int32 {
-	return ((int32(s.bots[0])<<0 + int32(s.bots[1])<<4 + int32(s.bots[2])<<8 + int32(s.bots[3])<<12) +
-		(int32(s.raw[0])<<16 + int32(s.raw[1])<<20 + int32(s.raw[2])<<24 + int32(s.raw[3])<<28))
+	return s.raw.hash() + s.bots.hash()<<16
 }
 
 func (s state) step(build resource, bp recipe) *state {
@@ -76,14 +80,11 @@ func (s state) step(build resource, bp recipe) *state {
 	return &next
 }
 
-// At each of the 24 turns, we can choose to let resources pile up,
-// or build one specific type of robot.
+// At each of the 24 turns, we can choose to let resources pile up, or build one specific bot.
 // We also want to disqualify building nothing on a turn when we can build all types of bots;
 // there's nothing further to save up for and we know that's suboptimal.
-// We also don't want to allow building a robot we could have built last turn, just to prune
-// the possible search space, but that requires passing more state around.
 func (s state) children(bp recipe) []state {
-	candidates := make([]state, 0, 4)
+	candidates := make([]state, 0, 3)
 	// Propose in order of best resource first.
 	for res := geode; res > none; res-- {
 		next := s.step(res, bp)
@@ -128,7 +129,9 @@ func main() {
 	var total int
 	for i, bp := range recipes {
 		best := bp.findBest(24)
-		fmt.Printf("Blueprint %d: best score %d\n", i+1, best)
+		if *debug {
+			fmt.Printf("Blueprint %d: best score %d\n", i+1, best)
+		}
 		total += (i + 1) * int(best)
 	}
 	fmt.Println(total)
@@ -137,7 +140,9 @@ func main() {
 	product := 1
 	for i := 0; i < 3; i++ {
 		best := recipes[i].findBest(32)
-		fmt.Printf("Blueprint %d: best score %d\n", i+1, best)
+		if *debug {
+			fmt.Printf("Blueprint %d: best score %d\n", i+1, best)
+		}
 		product *= int(best)
 	}
 	fmt.Println(product)
@@ -145,7 +150,7 @@ func main() {
 
 func (bp recipe) findBest(maxTime int8) int8 {
 	var best int8
-	visited := make(map[int32]int8)
+	visited := make(map[int32]bool)
 	q := []state{{
 		bots: inventory{1, 0, 0, 0},
 	}}
@@ -156,34 +161,15 @@ func (bp recipe) findBest(maxTime int8) int8 {
 		q = q[1:]
 		q2 = q2[1:]
 
-		// We've already evaluated this position, but reached it sooner.
-		if previous, ok := visited[head.hash()]; ok && previous <= int8(turns) {
+		// We've already evaluated this position.
+		if hash := head.hash(); visited[hash] {
 			continue
+		} else {
+			visited[hash] = true
 		}
 
 		var children []state
-		// Sloppy heuristic: if the production of each ingredient needed for a geode-cracking
-		// robot is sufficient to build a robot 2 out of each 3 turns, that's probably good enough.
-		shortCircuit := true
-		for res := obsidian; res > none; res-- {
-			if head.bots[res] * 3 >= bp[geode][res] * 2 {
-				shortCircuit = false
-				break
-			}
-		}
-
-		if !shortCircuit {
-			// Don't pollute RAM with a ton of nodes we don't care about.
-			visited[head.hash()] = int8(turns)
-		}
-
-		if shortCircuit {
-			if builtGeode := head.step(geode, bp); builtGeode != nil {
-				children = append(children, *builtGeode)
-			} else {
-				head = *head.step(none, bp)
-			}
-		} else if turns == maxTime-3 {
+		if turns == maxTime-3 {
 			// Score it and terminate the tree. On the second and third to last rounds the only thing that can make
 			// a difference is building a geode miner.
 			for j := 0; j < 2; j++ {
@@ -200,7 +186,8 @@ func (bp recipe) findBest(maxTime int8) int8 {
 			}
 			continue
 		} else if turns >= maxTime-4 {
-			// Build a geode bot as our first (and only) choice; if we can't build a geode bot, try to build its dependencies.
+			// Build a geode bot as our first (and only) choice; if we can't build a geode bot,
+			// don't bother building anything other than dependencies for geodes.
 			if builtGeode := head.step(geode, bp); builtGeode != nil {
 				children = append(children, *builtGeode)
 			} else {
