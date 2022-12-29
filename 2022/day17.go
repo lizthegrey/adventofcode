@@ -9,8 +9,14 @@ import (
 
 var inputFile = flag.String("inputFile", "inputs/day17.input", "Relative file path to use as input.")
 
+const width = 7
+
 type coord struct {
 	x, y int
+}
+
+type longs struct {
+	x, y int64
 }
 
 type stencil []coord
@@ -25,14 +31,15 @@ func (s stencil) height() int {
 	return 1 + max
 }
 
-type terrain map[coord]bool
+type terrain map[longs]bool
 
-func (t terrain) collides(s stencil, xOff, yOff int) bool {
+func (t terrain) collides(s stencil, xOff, yOff int64) bool {
 	if yOff < 0 {
 		return true
 	}
 	for _, c := range s {
-		if c.x+xOff < 0 || c.x+xOff >= 7 || t[coord{c.x + xOff, c.y + yOff}] {
+		x := int64(c.x) + xOff
+		if x < 0 || x >= width || t[longs{x, int64(c.y) + yOff}] {
 			return true
 		}
 	}
@@ -48,6 +55,14 @@ func (s *sequence[T]) next() T {
 	n := s.n
 	s.n = (s.n + 1) % len(s.elems)
 	return s.elems[n]
+}
+
+func (s sequence[T]) modulus() int {
+	return s.n
+}
+
+func (s sequence[T]) length() int {
+	return len(s.elems)
 }
 
 func main() {
@@ -80,26 +95,52 @@ func main() {
 	// part A
 	fmt.Println(simulate(shapes, moves, 2022))
 	// part B
-	// We want to know after 1000000000000 pieces.
-	// This isn't practical to compute by hand, instead we need to look for the repeating pattern.
+	fmt.Println(simulate(shapes, moves, 1000000000000))
 }
 
-func simulate(shapes sequence[stencil], moves sequence[bool], rounds int) int {
-	var maxY int
+func simulate(shapes sequence[stencil], moves sequence[bool], rounds int64) int64 {
+	var maxY int64
 	board := make(terrain)
-	for i := 0; i < rounds; i++ {
+	cache := make(map[coord]longs)
+	var streak int
+	for i := int64(0); i < rounds; i++ {
+		if entry, ok := cache[coord{shapes.modulus(), moves.modulus()}]; ok {
+			streak += 1
+			if streak == shapes.length() {
+				// We've started over. Fast forward it.
+				cycleLen := i - entry.x
+				heightDelta := maxY - entry.y
+				repeats := (rounds - i) / cycleLen
+				i += cycleLen * repeats
+
+				yOffset := heightDelta * repeats
+				for y := entry.y; y <= maxY; y++ {
+					for x := 0; x < width; x++ {
+						if board[longs{int64(x), y}] {
+							board[longs{int64(x), y + yOffset}] = true
+						}
+					}
+				}
+				maxY += yOffset
+			}
+		} else {
+			// Streak has been reset.
+			streak = 0
+			cache[coord{shapes.modulus(), moves.modulus()}] = longs{i, maxY}
+		}
+
 		shape := shapes.next()
-		xOff := 2
-		yOff := maxY + 3
+		xOff := int64(2)
+		yOff := maxY + int64(3)
 		for {
 			// Attempt to move the piece sideways,
 			left := moves.next()
 			if left {
-				if !board.collides(shape, xOff-1, yOff) {
+				if !board.collides(shape, xOff-int64(1), yOff) {
 					xOff -= 1
 				}
 			} else {
-				if !board.collides(shape, xOff+1, yOff) {
+				if !board.collides(shape, xOff+int64(1), yOff) {
 					xOff += 1
 				}
 			}
@@ -111,9 +152,9 @@ func simulate(shapes sequence[stencil], moves sequence[bool], rounds int) int {
 		}
 		// Land the piece.
 		for _, c := range shape {
-			board[coord{c.x + xOff, c.y + yOff}] = true
+			board[longs{int64(c.x) + xOff, int64(c.y) + yOff}] = true
 		}
-		top := yOff + shape.height()
+		top := yOff + int64(shape.height())
 		if top > maxY {
 			maxY = top
 		}
