@@ -160,16 +160,38 @@ func (bp recipe) findBest(maxTime int8) int8 {
 		if previous, ok := visited[head.hash()]; ok && previous <= int8(turns) {
 			continue
 		}
-		visited[head.hash()] = int8(turns)
 
 		var children []state
-		if turns == maxTime-2 {
-			// Score it and terminate the tree. On the second to last round the only thing that can make
-			// a difference is building a geode miner.
+		// Sloppy heuristic: if the production of each ingredient needed for a geode-cracking
+		// robot is sufficient to build a robot 2 out of each 3 turns, that's probably good enough.
+		shortCircuit := true
+		for res := obsidian; res > none; res-- {
+			if head.bots[res] * 3 >= bp[geode][res] * 2 {
+				shortCircuit = false
+				break
+			}
+		}
+
+		if !shortCircuit {
+			// Don't pollute RAM with a ton of nodes we don't care about.
+			visited[head.hash()] = int8(turns)
+		}
+
+		if shortCircuit {
 			if builtGeode := head.step(geode, bp); builtGeode != nil {
-				head = *builtGeode
+				children = append(children, *builtGeode)
 			} else {
 				head = *head.step(none, bp)
+			}
+		} else if turns == maxTime-3 {
+			// Score it and terminate the tree. On the second and third to last rounds the only thing that can make
+			// a difference is building a geode miner.
+			for j := 0; j < 2; j++ {
+				if builtGeode := head.step(geode, bp); builtGeode != nil {
+					head = *builtGeode
+				} else {
+					head = *head.step(none, bp)
+				}
 			}
 			// Doesn't matter what we build on the last round, it won't start mining in time.
 			head = *head.step(none, bp)
@@ -177,7 +199,7 @@ func (bp recipe) findBest(maxTime int8) int8 {
 				best = head.raw[geode]
 			}
 			continue
-		} else if turns == maxTime-3 {
+		} else if turns >= maxTime-4 {
 			// Build a geode bot as our first (and only) choice; if we can't build a geode bot, try to build its dependencies.
 			if builtGeode := head.step(geode, bp); builtGeode != nil {
 				children = append(children, *builtGeode)
