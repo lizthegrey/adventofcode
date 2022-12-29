@@ -36,8 +36,6 @@ func toResource(s string) resource {
 	}
 }
 
-const maxTime = 24
-
 type inventory [4]int8
 type recipe [4]inventory
 type moves []resource
@@ -129,71 +127,78 @@ func main() {
 	// part A
 	var total int
 	for i, bp := range recipes {
-		var bestScore, bestDepth int8
-		visited := make(map[int32]int8)
-		q := []state{{
-			bots: inventory{1, 0, 0, 0},
-		}}
-		q2 := []int8{0}
-		for len(q) > 0 {
-			head := q[0]
-			turns := q2[0]
-			q = q[1:]
-			q2 = q2[1:]
-
-			// We've already evaluated this position, but reached it sooner.
-			if previous, ok := visited[head.hash()]; ok && previous <= int8(turns) {
-				continue
-			}
-			visited[head.hash()] = int8(turns)
-
-			if turns > bestDepth {
-				bestDepth = turns
-				if bestDepth > maxTime/2 {
-					fmt.Printf("New depth: %d\n", bestDepth)
-				}
-			}
-
-			var children []state
-			if turns == maxTime-2 {
-				// Score it and terminate the tree. On the second to last round the only thing that can make
-				// a difference is building a geode miner.
-				if builtGeode := head.step(geode, bp); builtGeode != nil {
-					head = *builtGeode
-				} else {
-					head = *head.step(none, bp)
-				}
-				// Doesn't matter what we build on the last round, it won't start mining in time.
-				head = *head.step(none, bp)
-				if head.raw[geode] > bestScore {
-					bestScore = head.raw[geode]
-					fmt.Printf("New best: %d\n", bestScore)
-				}
-				continue
-			} else if turns == maxTime-3 {
-				// Build a geode bot as our first (and only) choice; if we can't build a geode bot, try to build its dependencies.
-				if builtGeode := head.step(geode, bp); builtGeode != nil {
-					children = append(children, *builtGeode)
-				} else {
-					for res := obsidian; res > none; res-- {
-						if bp[obsidian][res] > 0 {
-							if proposed := head.step(res, bp); proposed != nil {
-								children = append(children, *proposed)
-							}
-						}
-						// Also always propose doing nothing.
-						children = append(children, *head.step(none, bp))
-					}
-				}
-			} else {
-				children = head.children(bp)
-			}
-			q = append(q, children...)
-			for i := 0; i < len(children); i++ {
-				q2 = append(q2, turns+1)
-			}
-		}
-		total += (i + 1) * int(bestScore)
+		best := bp.findBest(24)
+		fmt.Printf("Blueprint %d: best score %d\n", i+1, best)
+		total += (i + 1) * int(best)
 	}
 	fmt.Println(total)
+
+	// part B
+	product := 1
+	for i := 0; i < 3; i++ {
+		best := recipes[i].findBest(32)
+		fmt.Printf("Blueprint %d: best score %d\n", i+1, best)
+		product *= int(best)
+	}
+	fmt.Println(product)
+}
+
+func (bp recipe) findBest(maxTime int8) int8 {
+	var best int8
+	visited := make(map[int32]int8)
+	q := []state{{
+		bots: inventory{1, 0, 0, 0},
+	}}
+	q2 := []int8{0}
+	for len(q) > 0 {
+		head := q[0]
+		turns := q2[0]
+		q = q[1:]
+		q2 = q2[1:]
+
+		// We've already evaluated this position, but reached it sooner.
+		if previous, ok := visited[head.hash()]; ok && previous <= int8(turns) {
+			continue
+		}
+		visited[head.hash()] = int8(turns)
+
+		var children []state
+		if turns == maxTime-2 {
+			// Score it and terminate the tree. On the second to last round the only thing that can make
+			// a difference is building a geode miner.
+			if builtGeode := head.step(geode, bp); builtGeode != nil {
+				head = *builtGeode
+			} else {
+				head = *head.step(none, bp)
+			}
+			// Doesn't matter what we build on the last round, it won't start mining in time.
+			head = *head.step(none, bp)
+			if head.raw[geode] > best {
+				best = head.raw[geode]
+			}
+			continue
+		} else if turns == maxTime-3 {
+			// Build a geode bot as our first (and only) choice; if we can't build a geode bot, try to build its dependencies.
+			if builtGeode := head.step(geode, bp); builtGeode != nil {
+				children = append(children, *builtGeode)
+			} else {
+				for res := obsidian; res > none; res-- {
+					if bp[obsidian][res] > 0 {
+						if proposed := head.step(res, bp); proposed != nil {
+							children = append(children, *proposed)
+						}
+					}
+					// Also always propose doing nothing.
+					children = append(children, *head.step(none, bp))
+				}
+			}
+		} else {
+			children = head.children(bp)
+		}
+		q = append(q, children...)
+		for i := 0; i < len(children); i++ {
+			q2 = append(q2, turns+1)
+		}
+	}
+	return best
 }
