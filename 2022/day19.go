@@ -38,13 +38,18 @@ func toResource(s string) resource {
 
 const maxTime = 24
 
-type inventory [4]int
+type inventory [4]int8
 type recipe [4]inventory
 type moves []resource
 
 type state struct {
 	bots inventory
 	raw  inventory
+}
+
+func (s state) hash() int32 {
+	return ((int32(s.bots[0])<<0 + int32(s.bots[1])<<4 + int32(s.bots[2])<<8 + int32(s.bots[3])<<12) +
+		(int32(s.raw[0])<<16 + int32(s.raw[1])<<20 + int32(s.raw[2])<<24 + int32(s.raw[3])<<28))
 }
 
 func (s state) step(build resource, bp recipe) *state {
@@ -115,7 +120,7 @@ func main() {
 				vp := strings.Split(v, " ")
 				quantity, _ := strconv.Atoi(vp[0])
 				ingredient := toResource(vp[1])
-				bp[product][ingredient] = quantity
+				bp[product][ingredient] = int8(quantity)
 			}
 		}
 		recipes = append(recipes, bp)
@@ -124,12 +129,12 @@ func main() {
 	// part A
 	var total int
 	for i, bp := range recipes {
-		var bestScore, bestDepth int
-		visited := make(map[state]int)
+		var bestScore, bestDepth int8
+		visited := make(map[int32]int8)
 		q := []state{{
 			bots: inventory{1, 0, 0, 0},
 		}}
-		q2 := []int{0}
+		q2 := []int8{0}
 		for len(q) > 0 {
 			head := q[0]
 			turns := q2[0]
@@ -137,23 +142,16 @@ func main() {
 			q2 = q2[1:]
 
 			// We've already evaluated this position, but reached it sooner.
-			if previous, ok := visited[head]; ok && previous <= turns {
+			if previous, ok := visited[head.hash()]; ok && previous <= int8(turns) {
 				continue
 			}
-			visited[head] = turns
+			visited[head.hash()] = int8(turns)
 
 			if turns > bestDepth {
 				bestDepth = turns
 				if bestDepth > maxTime/2 {
 					fmt.Printf("New depth: %d\n", bestDepth)
 				}
-			}
-
-			// Futility check: if we could somehow build a
-			// geode bot every round and not catch up to the best
-			// by 24 rounds, this is pointless.
-			if remaining := maxTime - turns; head.raw[geode]+remaining*head.bots[geode]+remaining*(remaining-1)/2 <= bestScore {
-				continue
 			}
 
 			var children []state
@@ -195,7 +193,7 @@ func main() {
 				q2 = append(q2, turns+1)
 			}
 		}
-		total += (i + 1) * bestScore
+		total += (i + 1) * int(bestScore)
 	}
 	fmt.Println(total)
 }
