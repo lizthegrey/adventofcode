@@ -35,7 +35,7 @@ type board struct {
 	maxR, maxC int
 }
 
-func (b board) bounds(pos coord) coord {
+func (b board) bounds(pos coord, cube bool) coord {
 	if pos.r < -1 {
 		pos.r = b.maxR + 1
 	} else if pos.r > b.maxR+1 {
@@ -54,7 +54,7 @@ type turtle struct {
 	facing dir
 }
 
-func (t *turtle) forward(passable board, n int) {
+func (t *turtle) forward(passable board, n int, cube bool) {
 	var incr coord
 	switch t.facing {
 	case right:
@@ -72,7 +72,7 @@ func (t *turtle) forward(passable board, n int) {
 	for i < n {
 		// Provisionally move us one square with wraparound.
 		proposed := t.pos.add(incr)
-		proposed = passable.bounds(proposed)
+		proposed = passable.bounds(proposed, cube)
 
 		if p, ok := passable.tiles[proposed]; !ok {
 			// This isn't a real tile. slide riiiight on over without incrementing i
@@ -130,11 +130,15 @@ func main() {
 	}
 
 	// part A
-	// Evaluate the command string now that we have our board.
-	player := turtle{}
-	player.forward(passable, 1)
+	fmt.Println(passable.run(split[len(split)-2], false))
+	// part B
+	fmt.Println(passable.run(split[len(split)-2], true))
+}
 
-	commands := split[len(split)-2]
+func (b board) run(commands string, cube bool) int {
+	player := turtle{}
+	player.forward(b, 1, cube)
+
 	for i := 0; i < len(commands); i++ {
 		switch commands[i] {
 		case 'L':
@@ -148,9 +152,9 @@ func main() {
 				j++
 			}
 			v, _ := strconv.Atoi(commands[i : i+j])
-			player.forward(passable, v)
+			player.forward(b, v, cube)
 			i += j - 1
 		}
 	}
-	fmt.Println(player.password())
+	return player.password()
 }
