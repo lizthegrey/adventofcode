@@ -1,11 +1,12 @@
 package main
 
 import (
-	"container/heap"
 	"flag"
 	"fmt"
 	"io/ioutil"
 	"strings"
+
+	"github.com/lizthegrey/adventofcode/2022/heapq"
 )
 
 var inputFile = flag.String("inputFile", "inputs/day12.input", "Relative file path to use as input.")
@@ -31,53 +32,16 @@ func (c coord) minDst(o coord) int {
 	return sum
 }
 
-type HeapQueue struct {
-	elems     *[]coord
-	score     terrain
-	positions terrain
-}
-
-func (h HeapQueue) Len() int           { return len(*h.elems) }
-func (h HeapQueue) Less(i, j int) bool { return h.score[(*h.elems)[i]] < h.score[(*h.elems)[j]] }
-func (h HeapQueue) Swap(i, j int) {
-	h.positions[(*h.elems)[i]], h.positions[(*h.elems)[j]] = h.positions[(*h.elems)[j]], h.positions[(*h.elems)[i]]
-	(*h.elems)[i], (*h.elems)[j] = (*h.elems)[j], (*h.elems)[i]
-}
-
-func (h HeapQueue) Push(x interface{}) {
-	h.positions[x.(coord)] = len(*h.elems)
-	*h.elems = append(*h.elems, x.(coord))
-}
-
-func (h HeapQueue) Pop() interface{} {
-	old := *h.elems
-	n := len(old)
-	x := old[n-1]
-	*h.elems = old[0 : n-1]
-	delete(h.positions, x)
-	return x
-}
-
-func (h HeapQueue) Position(x coord) int {
-	if pos, ok := h.positions[x]; ok {
-		return pos
-	}
-	return -1
-}
-
 func aStar(r terrain, src, dst coord) int {
 	gScore := terrain{
 		src: 0,
 	}
-	fScore := terrain{
-		src: src.minDst(dst),
-	}
-	workList := HeapQueue{&[]coord{src}, fScore, make(terrain)}
-	heap.Init(&workList)
+	workList := heapq.New[coord]()
+	workList.Upsert(src, src.minDst(dst))
 
-	for len(*workList.elems) != 0 {
+	for workList.Len() != 0 {
 		// Pop the current node off the worklist.
-		current := heap.Pop(&workList).(coord)
+		current := workList.PopSafe()
 
 		if current == dst {
 			return gScore[dst]
@@ -86,12 +50,7 @@ func aStar(r terrain, src, dst coord) int {
 			proposedScore := gScore[current] + 1
 			if previousScore, ok := gScore[n]; !ok || proposedScore < previousScore {
 				gScore[n] = proposedScore
-				fScore[n] = proposedScore + n.minDst(dst)
-				if pos := workList.Position(n); pos == -1 {
-					heap.Push(&workList, n)
-				} else {
-					heap.Fix(&workList, pos)
-				}
+				workList.Upsert(n, proposedScore + n.minDst(dst))
 			}
 		}
 	}
