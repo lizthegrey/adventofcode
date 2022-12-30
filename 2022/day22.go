@@ -30,7 +30,24 @@ func (n coord) add(o coord) coord {
 	return n
 }
 
-type board map[coord]bool
+type board struct {
+	tiles      map[coord]bool
+	maxR, maxC int
+}
+
+func (b board) bounds(pos coord) coord {
+	if pos.r < -1 {
+		pos.r = b.maxR + 1
+	} else if pos.r > b.maxR+1 {
+		pos.r = -1
+	}
+	if pos.c < -1 {
+		pos.c = b.maxC + 1
+	} else if pos.c > b.maxC+1 {
+		pos.c = -1
+	}
+	return pos
+}
 
 type turtle struct {
 	pos    coord
@@ -50,20 +67,26 @@ func (t *turtle) forward(passable board, n int) {
 		incr.r -= 1
 	}
 
-	// Insert something here for handling n
 	var i int
-	loc = t.pos
-	for {
-		// Provisionally move us one square.
-		proposed := loc.add(incr)
-		// Handle the wall collision and wrapping logic here.
-		if p, ok := passable[proposed]; !ok {
+	rollback := t.pos
+	for i < n {
+		// Provisionally move us one square with wraparound.
+		proposed := t.pos.add(incr)
+		proposed = passable.bounds(proposed)
+
+		if p, ok := passable.tiles[proposed]; !ok {
 			// This isn't a real tile. slide riiiight on over without incrementing i
-		} else if i == n || !p {
-			// We've hit a wall. Regardless of what n says, we can't proceed any further.
+			// or changing rollback value
 			t.pos = proposed
+		} else if !p {
+			// We've hit a wall, we can't proceed regardless of having more allowed movement.
+			// Roll back to the last known non-void position rather than stranding us in the void.
+			t.pos = rollback
 			break
 		} else {
+			i++
+			// Change both pos and rollback
+			rollback = proposed
 			t.pos = proposed
 		}
 	}
@@ -85,20 +108,26 @@ func main() {
 	contents := string(bytes)
 	split := strings.Split(contents, "\n")
 
-	passable := make(board)
+	var passable board
+	passable.tiles = make(map[coord]bool)
 	for r, line := range split[:len(split)-3] {
+		if r > passable.maxR {
+			passable.maxR = r
+		}
 		for c, v := range line {
+			if c > passable.maxC {
+				passable.maxC = c
+			}
 			switch v {
 			case ' ':
 				continue
 			case '#':
-				passable[coord{r, c}] = false
+				passable.tiles[coord{r, c}] = false
 			case '.':
-				passable[coord{r, c}] = true
+				passable.tiles[coord{r, c}] = true
 			}
 		}
 	}
-	fmt.Println(len(passable))
 
 	// part A
 	// Evaluate the command string now that we have our board.
