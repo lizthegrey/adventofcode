@@ -9,6 +9,7 @@ import (
 )
 
 var inputFile = flag.String("inputFile", "inputs/day22.input", "Relative file path to use as input.")
+var debug = flag.Bool("debug", false, "Whether to print debug output.")
 
 type board struct {
 	tiles      map[coord]bool
@@ -24,8 +25,31 @@ const (
 	up
 )
 
+var dirs = map[dir]string{
+	right: "right",
+	down:  "down",
+	left:  "left",
+	up:    "up",
+}
+
 type coord struct {
 	r, c int
+}
+
+func (t turtle) String(p board) string {
+	width := p.maxC / 3
+	height := p.maxR / 4
+	relC := t.c % width
+	relR := t.r % height
+	faces := map[coord]string{
+		coord{0 * height, 1 * width}: "A",
+		coord{0 * height, 2 * width}: "B",
+		coord{1 * height, 1 * width}: "C",
+		coord{2 * height, 0 * width}: "D",
+		coord{2 * height, 1 * width}: "E",
+		coord{3 * height, 0 * width}: "F",
+	}
+	return fmt.Sprintf("(%d,%d) on %s, facing %s", relR, relC, faces[coord{t.r - relR, t.c - relC}], dirs[t.facing])
 }
 
 func (t *turtle) step() {
@@ -79,14 +103,14 @@ func (t *turtle) enforceBounds(p board, cube bool) {
 			//  D: C Right, {r,c} -> {c, min}  (transposed)
 			//  A: F Right, {r,c} -> {c, min}  (transposed)
 			//  B: F Up,    {r,c} -> {max, c}  (no transform)
-			switch t.c / width {
-			case D.c / width:
+			switch t.c - relC {
+			case D.c:
 				t.facing = right
 				t.coord = coord{C.r + relC, -1}
-			case A.c / width:
+			case A.c:
 				t.facing = right
 				t.coord = coord{F.r + relC, -1}
-			case B.c / width:
+			case B.c:
 				t.facing = up
 				t.coord = coord{p.maxC, F.c + relC}
 			}
@@ -95,14 +119,14 @@ func (t *turtle) enforceBounds(p board, cube bool) {
 			//  F: B Down,  {r,c} -> {min, c}  (no transform)
 			//  E: F Left,  {r,c} -> {c, max}  (transposed)
 			//  B: C Left,  {r,c} -> {c, max}  (transposed)
-			switch t.c / width {
-			case F.c / width:
+			switch t.c - relC {
+			case F.c:
 				t.facing = down
 				t.coord = coord{-1, B.c + relC}
-			case E.c / width:
+			case E.c:
 				t.facing = left
 				t.coord = coord{F.r + relC, p.maxC}
-			case B.c / width:
+			case B.c:
 				t.facing = left
 				t.coord = coord{C.r + relC, p.maxC}
 			}
@@ -112,17 +136,17 @@ func (t *turtle) enforceBounds(p board, cube bool) {
 			//  C: D Down,  {r,c} -> {min, r}  (transposed)
 			//  D: A Right, {r,c} -> {-r, min} (upside down)
 			//  F: A Down,  {r,c} -> {min, r}  (transposed)
-			switch t.r / height {
-			case A.r / height:
+			switch t.r - relR {
+			case A.r:
 				t.facing = right
 				t.coord = coord{D.r + (height - 1 - relR), -1}
-			case C.r / height:
+			case C.r:
 				t.facing = down
 				t.coord = coord{-1, D.c + relR}
-			case D.r / height:
+			case D.r:
 				t.facing = right
 				t.coord = coord{A.r + (height - 1 - relR), -1}
-			case F.r / height:
+			case F.r:
 				t.facing = down
 				t.coord = coord{-1, A.c + relR}
 			}
@@ -132,17 +156,17 @@ func (t *turtle) enforceBounds(p board, cube bool) {
 			//  C: B Up,    {r,c} -> {max, r}  (transposed)
 			//  E: B Left,  {r,c} -> {-r, max} (upside down)
 			//  F: E Up,    {r,c} -> {max, r}  (transposed)
-			switch t.r / height {
-			case B.r / height:
+			switch t.r - relR {
+			case B.r:
 				t.facing = left
 				t.coord = coord{E.r + (height - 1 - relR), p.maxC}
-			case C.r / height:
+			case C.r:
 				t.facing = up
 				t.coord = coord{p.maxR, B.c + relR}
-			case E.r / height:
+			case E.r:
 				t.facing = left
 				t.coord = coord{B.r + (height - 1 - relR), p.maxC}
-			case F.r / height:
+			case F.r:
 				t.facing = up
 				t.coord = coord{p.maxR, E.c + relR}
 			}
@@ -176,6 +200,9 @@ func (t *turtle) forward(passable board, n int, cube bool) {
 		} else {
 			i++
 			// Change both pos and rollback
+			if *debug && proposed.facing != rollback.facing {
+				fmt.Printf("Wrapped from %s to %s\n", rollback.String(passable), proposed.String(passable))
+			}
 			rollback = proposed
 			*t = proposed
 		}
