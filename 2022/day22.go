@@ -10,6 +10,11 @@ import (
 
 var inputFile = flag.String("inputFile", "inputs/day22.input", "Relative file path to use as input.")
 
+type board struct {
+	tiles      map[coord]bool
+	maxR, maxC int
+}
+
 type dir int
 
 const (
@@ -23,78 +28,163 @@ type coord struct {
 	r, c int
 }
 
-// Generates a new result.
-func (n coord) add(o coord) coord {
-	n.r += o.r
-	n.c += o.c
-	return n
+func (t *turtle) step() {
+	switch t.facing {
+	case right:
+		t.c += 1
+	case down:
+		t.r += 1
+	case left:
+		t.c -= 1
+	case up:
+		t.r -= 1
+	}
 }
 
-type board struct {
-	tiles      map[coord]bool
-	maxR, maxC int
-}
+func (t *turtle) enforceBounds(p board, cube bool) {
+	if !cube {
+		if t.r <= -1 {
+			t.r = p.maxR
+		} else if t.r >= p.maxR {
+			t.r = -1
+		} else if t.c <= -1 {
+			t.c = p.maxC
+		} else if t.c >= p.maxC {
+			t.c = -1
+		}
+	} else {
+		// Look up in the table of how we should map to a new coordinate/direction.
+		// For now, just hardcoding the table because, yeah. elly tells me it's very difficult
+		// to generically deduce so I will special case to my folding.
+		width := p.maxC / 3
+		height := p.maxR / 4
+		relC := t.c % width
+		relR := t.r % height
 
-func (b board) bounds(pos coord, cube bool) coord {
-	if pos.r < -1 {
-		pos.r = b.maxR + 1
-	} else if pos.r > b.maxR+1 {
-		pos.r = -1
+		// My input (will not work on small test input):
+		// 012cr
+		//  AB 0
+		//  C  1
+		// DE  2
+		// F   3
+		A := coord{0 * height, 1 * width}
+		B := coord{0 * height, 2 * width}
+		C := coord{1 * height, 1 * width}
+		D := coord{2 * height, 0 * width}
+		E := coord{2 * height, 1 * width}
+		F := coord{3 * height, 0 * width}
+
+		if t.r <= -1 {
+			// Hit top edge, travelling Up.
+			//  D: C Right, {r,c} -> {c, min}  (transposed)
+			//  A: F Right, {r,c} -> {c, min}  (transposed)
+			//  B: F Up,    {r,c} -> {max, c}  (no transform)
+			switch t.c / width {
+			case D.c / width:
+				t.facing = right
+				t.coord = coord{C.r + relC, -1}
+			case A.c / width:
+				t.facing = right
+				t.coord = coord{F.r + relC, -1}
+			case B.c / width:
+				t.facing = up
+				t.coord = coord{p.maxC, F.c + relC}
+			}
+		} else if t.r >= p.maxR {
+			// Hit bottom edge, travelling Down
+			//  F: B Down,  {r,c} -> {min, c}  (no transform)
+			//  E: F Left,  {r,c} -> {c, max}  (transposed)
+			//  B: C Left,  {r,c} -> {c, max}  (transposed)
+			switch t.c / width {
+			case F.c / width:
+				t.facing = down
+				t.coord = coord{-1, B.c + relC}
+			case E.c / width:
+				t.facing = left
+				t.coord = coord{F.r + relC, p.maxC}
+			case B.c / width:
+				t.facing = left
+				t.coord = coord{C.r + relC, p.maxC}
+			}
+		} else if t.c <= -1 {
+			// Hit Left edge
+			//  A: D Right, {r,c} -> {-r, min} (upside down)
+			//  C: D Down,  {r,c} -> {min, r}  (transposed)
+			//  D: A Right, {r,c} -> {-r, min} (upside down)
+			//  F: A Down,  {r,c} -> {min, r}  (transposed)
+			switch t.r / height {
+			case A.r / height:
+				t.facing = right
+				t.coord = coord{D.r + (height - 1 - relR), -1}
+			case C.r / height:
+				t.facing = down
+				t.coord = coord{-1, D.c + relR}
+			case D.r / height:
+				t.facing = right
+				t.coord = coord{A.r + (height - 1 - relR), -1}
+			case F.r / height:
+				t.facing = down
+				t.coord = coord{-1, A.c + relR}
+			}
+		} else if t.c >= p.maxC {
+			// Hit Right edge
+			//  B: E Left,  {r,c} -> {-r, max} (upside down)
+			//  C: B Up,    {r,c} -> {max, r}  (transposed)
+			//  E: B Left,  {r,c} -> {-r, max} (upside down)
+			//  F: E Up,    {r,c} -> {max, r}  (transposed)
+			switch t.r / height {
+			case B.r / height:
+				t.facing = left
+				t.coord = coord{E.r + (height - 1 - relR), p.maxC}
+			case C.r / height:
+				t.facing = up
+				t.coord = coord{p.maxR, B.c + relR}
+			case E.r / height:
+				t.facing = left
+				t.coord = coord{B.r + (height - 1 - relR), p.maxC}
+			case F.r / height:
+				t.facing = up
+				t.coord = coord{p.maxR, E.c + relR}
+			}
+		}
 	}
-	if pos.c < -1 {
-		pos.c = b.maxC + 1
-	} else if pos.c > b.maxC+1 {
-		pos.c = -1
-	}
-	return pos
 }
 
 type turtle struct {
-	pos    coord
+	coord
 	facing dir
 }
 
 func (t *turtle) forward(passable board, n int, cube bool) {
-	var incr coord
-	switch t.facing {
-	case right:
-		incr.c += 1
-	case down:
-		incr.r += 1
-	case left:
-		incr.c -= 1
-	case up:
-		incr.r -= 1
-	}
-
 	var i int
-	rollback := t.pos
+	rollback := *t
 	for i < n {
 		// Provisionally move us one square with wraparound.
-		proposed := t.pos.add(incr)
-		proposed = passable.bounds(proposed, cube)
+		proposed := *t
+		proposed.step()
+		proposed.enforceBounds(passable, cube)
 
-		if p, ok := passable.tiles[proposed]; !ok {
+		if p, ok := passable.tiles[proposed.coord]; !ok {
 			// This isn't a real tile. slide riiiight on over without incrementing i
 			// or changing rollback value
-			t.pos = proposed
+			*t = proposed
 		} else if !p {
 			// We've hit a wall, we can't proceed regardless of having more allowed movement.
 			// Roll back to the last known non-void position rather than stranding us in the void.
-			t.pos = rollback
+			*t = rollback
 			break
 		} else {
 			i++
 			// Change both pos and rollback
 			rollback = proposed
-			t.pos = proposed
+			*t = proposed
 		}
 	}
 }
 
 func (t turtle) password() int {
-	sum := 1000 * (t.pos.r + 1)
-	sum += 4 * (t.pos.c + 1)
+	sum := 1000 * (t.r + 1)
+	sum += 4 * (t.c + 1)
 	sum += int(t.facing)
 	return sum
 }
@@ -112,11 +202,11 @@ func main() {
 	passable.tiles = make(map[coord]bool)
 	for r, line := range split[:len(split)-3] {
 		if r > passable.maxR {
-			passable.maxR = r
+			passable.maxR = r + 1
 		}
 		for c, v := range line {
 			if c > passable.maxC {
-				passable.maxC = c
+				passable.maxC = c + 1
 			}
 			switch v {
 			case ' ':
