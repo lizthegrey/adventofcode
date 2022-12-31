@@ -65,7 +65,7 @@ func (t *turtle) step() {
 	}
 }
 
-func (t *turtle) enforceBounds(p board, cube bool) {
+func (t *turtle) enforceBounds(p board, cube bool) bool {
 	if !cube {
 		if t.r <= -1 {
 			t.r = p.maxR
@@ -75,6 +75,8 @@ func (t *turtle) enforceBounds(p board, cube bool) {
 			t.c = p.maxC
 		} else if t.c >= p.maxC {
 			t.c = -1
+		} else {
+			return false
 		}
 	} else {
 		// Look up in the table of how we should map to a new coordinate/direction.
@@ -112,7 +114,7 @@ func (t *turtle) enforceBounds(p board, cube bool) {
 				t.coord = coord{F.r + relC, -1}
 			case B.c:
 				t.facing = up
-				t.coord = coord{p.maxC, F.c + relC}
+				t.coord = coord{p.maxR, F.c + relC}
 			}
 		} else if t.r >= p.maxR {
 			// Hit bottom edge, travelling Down
@@ -170,8 +172,11 @@ func (t *turtle) enforceBounds(p board, cube bool) {
 				t.facing = up
 				t.coord = coord{p.maxR, E.c + relR}
 			}
+		} else {
+			return false
 		}
 	}
+	return true
 }
 
 type turtle struct {
@@ -182,11 +187,14 @@ type turtle struct {
 func (t *turtle) forward(passable board, n int, cube bool) {
 	var i int
 	rollback := *t
+	var wrapped bool
 	for i < n {
 		// Provisionally move us one square with wraparound.
 		proposed := *t
 		proposed.step()
-		proposed.enforceBounds(passable, cube)
+		if proposed.enforceBounds(passable, cube) {
+			wrapped = true
+		}
 
 		if p, ok := passable.tiles[proposed.coord]; !ok {
 			// This isn't a real tile. slide riiiight on over without incrementing i
@@ -200,9 +208,10 @@ func (t *turtle) forward(passable board, n int, cube bool) {
 		} else {
 			i++
 			// Change both pos and rollback
-			if *debug && proposed.facing != rollback.facing {
-				fmt.Printf("Wrapped from %s to %s\n", rollback.String(passable), proposed.String(passable))
+			if *debug && wrapped {
+				fmt.Printf("Wrap from %s to %s\n", rollback.String(passable), proposed.String(passable))
 			}
+			wrapped = false
 			rollback = proposed
 			*t = proposed
 		}
