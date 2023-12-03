@@ -39,23 +39,20 @@ func main() {
 	}
 	for y := 0; y <= maxY; y++ {
 		for x := 0; x <= maxX; {
-			c := grid[Coord{x, y}]
-			if c < '0' || c > '9' {
+			var length, num int
+			for {
+				c := grid[Coord{x + length, y}]
+				if c < '0' || c > '9' {
+					break
+				}
+				num = 10*num + int(c-'0')
+				length++
+			}
+			if length == 0 {
 				x++
 				continue
 			}
-			// We've found a number. Keep reading to the right.
-			num := int(c - '0')
-			length := 1
-			for i := 1; ; i++ {
-				n := grid[Coord{x + i, y}]
-				if n < '0' || n > '9' {
-					break
-				}
-				num = 10*num + int(n-'0')
-				length++
-			}
-		outer:
+			var added bool
 			for j := y - 1; j <= y+1; j++ {
 				for i := x - 1; i <= x+length; i++ {
 					nCoord := Coord{i, j}
@@ -66,14 +63,16 @@ func main() {
 					if neigh >= '0' && neigh <= '9' {
 						continue
 					}
-					sum += num
+					if !added {
+						sum += num
+						added = true
+					}
 					if neigh == '*' {
 						gears[nCoord] = append(gears[nCoord], num)
 					}
-					break outer
 				}
 			}
-			x = x + length
+			x += length
 		}
 	}
 	fmt.Println(sum)
