@@ -12,7 +12,8 @@ import (
 var inputFile = flag.String("inputFile", "inputs/day05.input", "Relative file path to use as input.")
 
 type Transform struct {
-	Min, Len, Offset int
+	Range
+	Offset int
 }
 
 type Mapping []Transform
@@ -137,7 +138,7 @@ func main() {
 		if err != nil {
 			log.Fatalf("Failed parsing %s: %v", parts[2], err)
 		}
-		m = append(m, Transform{src, length, dst - src})
+		m = append(m, Transform{Range{src, length}, dst - src})
 	}
 
 	lowestA := -1
