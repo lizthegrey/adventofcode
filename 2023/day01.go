@@ -8,7 +8,6 @@ import (
 )
 
 var inputFile = flag.String("inputFile", "inputs/day01.input", "Relative file path to use as input.")
-var partB = flag.Bool("partB", false, "Whether to use part B logic.")
 
 var digits = map[string]int{
 	"zero":  0,
@@ -32,8 +31,13 @@ func main() {
 	contents := string(bytes)
 	split := strings.Split(contents, "\n")
 
+	fmt.Println(process(split[:len(split)-1], false))
+	fmt.Println(process(split[:len(split)-1], true))
+}
+
+func process(lines []string, partB bool) int {
 	sum := 0
-	for _, s := range split[:len(split)-1] {
+	for _, s := range lines {
 		first := -1
 		last := -1
 		for i := 0; i < len(s); i++ {
@@ -43,7 +47,7 @@ func main() {
 					first = digit
 				}
 				last = digit
-			} else if *partB {
+			} else if partB {
 				for str, digit := range digits {
 					if i+len(str) <= len(s) && s[i:i+len(str)] == str {
 						if first == -1 {
@@ -57,5 +61,5 @@ func main() {
 		}
 		sum += first*10 + last
 	}
-	fmt.Println(sum)
+	return sum
 }
