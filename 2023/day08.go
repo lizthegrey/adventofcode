@@ -4,7 +4,6 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
-	"math/big"
 	"strings"
 )
 
@@ -68,11 +67,16 @@ func main() {
 }
 
 func lcm(a, b uint64) uint64 {
-	var x, y, product, ret, gcd big.Int
-	x.SetUint64(a)
-	y.SetUint64(b)
-	product.Mul(&x, &y)
-	gcd.GCD(nil, nil, &x, &y)
-	ret.Div(&product, &gcd)
-	return ret.Uint64()
+	return a * b / gcd(a, b)
+}
+
+func gcd(a, b uint64) uint64 {
+	for a != b {
+		if a > b {
+			a -= b
+		} else {
+			b -= a
+		}
+	}
+	return a
 }
