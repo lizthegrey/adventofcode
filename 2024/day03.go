@@ -30,22 +30,14 @@ func main() {
 	contents := string(bytes)
 	split := strings.Split(contents, "\n")
 
-	// part A
-	var sum int
-	for _, s := range split[:len(split)-1] {
-		results := pattern.FindAllStringSubmatch(s, -1)
-		for _, r := range results {
-			a, _ := strconv.Atoi(r[1])
-			b, _ := strconv.Atoi(r[2])
-			sum += a * b
-		}
-	}
-	fmt.Println(sum)
+	fmt.Println(process(split[:len(split)-1], false))
+	fmt.Println(process(split[:len(split)-1], true))
+}
 
-	// part B
-	sum = 0
+func process(lines []string, obeyDont bool) int {
+	sum := 0
 	enabled := true
-	for _, s := range split[:len(split)-1] {
+	for _, s := range lines {
 		enables := enable.FindAllStringIndex(s, -1)
 		disables := disable.FindAllStringIndex(s, -1)
 		results := pattern.FindAllStringSubmatchIndex(s, -1)
@@ -61,7 +53,7 @@ func main() {
 				enabled = true
 				eIdx += 1
 			}
-			if dIdx < len(disables) && disables[dIdx][0] == i {
+			if obeyDont && dIdx < len(disables) && disables[dIdx][0] == i {
 				enabled = false
 				dIdx += 1
 			}
@@ -73,5 +65,5 @@ func main() {
 			}
 		}
 	}
-	fmt.Println(sum)
+	return sum
 }
