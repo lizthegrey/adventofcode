@@ -55,7 +55,7 @@ func main() {
 	// part B
 	frequencies := make(map[int]int)
 	for _, b := range listB {
-		frequencies[b] += 1
+		frequencies[b]++
 	}
 	var similarity int
 	for _, a := range listA {

@@ -34,8 +34,8 @@ func main() {
 outer:
 	for _, r := range rows {
 		if check(r) {
-			safe += 1
-			recovered += 1
+			safe++
+			recovered++
 			continue
 		}
 		for skip := range r {
@@ -47,7 +47,7 @@ outer:
 				copied = append(copied, v)
 			}
 			if check(copied) {
-				recovered += 1
+				recovered++
 				continue outer
 			}
 		}

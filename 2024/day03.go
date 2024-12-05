@@ -51,17 +51,17 @@ func process(lines []string, obeyDont bool) int {
 		for i := 0; i < len(s); i++ {
 			if eIdx < len(enables) && enables[eIdx][0] == i {
 				enabled = true
-				eIdx += 1
+				eIdx++
 			}
 			if obeyDont && dIdx < len(disables) && disables[dIdx][0] == i {
 				enabled = false
-				dIdx += 1
+				dIdx++
 			}
 			if oIdx < len(ops) && ops[oIdx].pos == i {
 				if enabled {
 					sum += ops[oIdx].val
 				}
-				oIdx += 1
+				oIdx++
 			}
 		}
 	}
