@@ -19,7 +19,7 @@ func main() {
 	contents := string(bytes)
 	split := strings.Split(contents, "\n")
 
-	var valid int64
+	var validA, validB int64
 	for _, s := range split[:len(split)-1] {
 		parts := strings.Split(s, ": ")
 		total, _ := strconv.Atoi(parts[0])
@@ -28,14 +28,18 @@ func main() {
 			n, _ := strconv.Atoi(part)
 			nums = append(nums, int64(n))
 		}
-		if check(int64(total), nums[0], nums[1:]) {
-			valid += int64(total)
+		if check(int64(total), nums[0], nums[1:], false) {
+			validA += int64(total)
+		}
+		if check(int64(total), nums[0], nums[1:], true) {
+			validB += int64(total)
 		}
 	}
-	fmt.Println(valid)
+	fmt.Println(validA)
+	fmt.Println(validB)
 }
 
-func check(total, cumulative int64, nums []int64) bool {
+func check(total, cumulative int64, nums []int64, partB bool) bool {
 	// Each op makes total bigger, so bail early if we overshot.
 	if cumulative > total {
 		return false
@@ -45,12 +49,12 @@ func check(total, cumulative int64, nums []int64) bool {
 	cat := concat(cumulative, nums[0])
 	// No further numbers to add.
 	if len(nums) == 1 {
-		if sum == total || product == total || cat == total {
+		if sum == total || product == total || (partB && cat == total) {
 			return true
 		}
 		return false
 	}
-	return check(total, sum, nums[1:]) || check(total, product, nums[1:]) || check(total, cat, nums[1:])
+	return check(total, sum, nums[1:], partB) || check(total, product, nums[1:], partB) || (partB && check(total, cat, nums[1:], partB))
 }
 
 func concat(left, right int64) int64 {
