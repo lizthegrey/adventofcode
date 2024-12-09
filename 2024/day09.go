@@ -46,18 +46,19 @@ func main() {
 	copy(a, mem)
 	right := len(a)
 	for hole := 0; hole < len(a); hole++ {
-		fill := a[hole]
-		if fill != empty {
+		// Look for a place to store.
+		if fill := a[hole]; fill != empty {
 			continue
 		}
-		// Stop when the two pointers collide.
+		// Stop when the two indices collide.
 		if right <= hole {
 			break
 		}
+		// Find a non-empty fragment to use.
 		for right--; a[right] == empty; right-- {
 		}
-		a[hole] = a[right]
-		a[right] = empty
+		// Swap.
+		a[hole], a[right] = a[right], empty
 	}
 	fmt.Println(checksum(a))
 
@@ -68,8 +69,8 @@ func main() {
 		pos := positions[file]
 	search:
 		for i := 0; i < pos; i++ {
-			for j := 0; j < length; j++ {
-				if b[i+j] != empty {
+			for offset := 0; offset < length; offset++ {
+				if b[i+offset] != empty {
 					continue search
 				}
 			}
