@@ -42,28 +42,27 @@ func main() {
 		mem = append(mem, slices.Repeat([]uint16{val}, digit)...)
 	}
 
-	a := make([]uint16, len(mem))
-	copy(a, mem)
-	right := len(a)
+	a := slices.Clone(mem)
+	// ss stands for "search sequence", of course!
+	ss := len(a)
 	for hole := 0; hole < len(a); hole++ {
 		// Look for a place to store.
 		if fill := a[hole]; fill != empty {
 			continue
 		}
 		// Stop when the two indices collide.
-		if right <= hole {
+		if ss <= hole {
 			break
 		}
 		// Find a non-empty fragment to use.
-		for right--; a[right] == empty; right-- {
+		for ss--; a[ss] == empty; ss-- {
 		}
 		// Swap.
-		a[hole], a[right] = a[right], empty
+		a[hole], a[ss] = a[ss], empty
 	}
 	fmt.Println(checksum(a))
 
-	b := make([]uint16, len(mem))
-	copy(b, mem)
+	b := slices.Clone(mem)
 	for file := maxFile; file != empty; file-- {
 		length := lengths[file]
 		pos := positions[file]
