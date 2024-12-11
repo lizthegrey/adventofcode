@@ -61,7 +61,7 @@ func main() {
 	split := strings.Split(contents, "\n")
 
 	var stones []int
-	for _, s := range strings.Split(split[:len(split)-1][0], " ") {
+	for _, s := range strings.Split(split[0], " ") {
 		v, _ := strconv.Atoi(s)
 		stones = append(stones, v)
 	}
