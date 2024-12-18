@@ -39,6 +39,9 @@ func main() {
 	}
 
 	out := compute(regs, ops)
+	if !slices.Equal(out, fast(regs[0])) {
+		panic("fast algo is wrong")
+	}
 	for i, v := range out {
 		if i > 0 {
 			fmt.Printf(",")
@@ -47,11 +50,30 @@ func main() {
 	}
 	fmt.Println()
 
-	// i := int64(35184372000000)
-	var i int64
+	i := int64(35184370000000)
+
+	// interesting clusters 35186300000000 35188450000000 35189890000000 35190160000000 35190560000000
+	// [2 4 1 7 7 5 1 7 4 1 3 0 4 0 0 1]
+	// we are looking for:
+	// [2 4 1 7 7 5 1 7 4 6 0 3 5 5 3 0]
+	// at 35193640000000 it looks more interesting
+	// [2 4 1 7 7 5 1 7 4 4 0 1 4 0 0 1]
+	// [2 4 1 7 7 5 1 7 4 5 0 1 4 0 0 1]
+	// 35194710000000 they finally mostly agree!
+	// [2 4 1 7 7 5 1 7 4 6 1 1 4 0 0 1]
+	// no match by 35200000000000
 	for {
-		regs[0] = i
-		out := compute(regs, ops)
+		out = fast(i)
+		if i%10000000 == 0 {
+			if len(ops) > len(out) {
+				fmt.Println("keep going up")
+			}
+			fmt.Println(i)
+		}
+		if slices.Equal(ops[0:9], out[0:9]) {
+			fmt.Println(out)
+			fmt.Println(ops)
+		}
 		if slices.Equal(ops, out) {
 			fmt.Println(i)
 			break
@@ -115,9 +137,38 @@ func combo(oper int64, regs []int64) int64 {
 }
 
 func div(oper int64, regs []int64) int64 {
-	denom := int64(1)
-	for i := int64(0); i < combo(oper, regs); i++ {
-		denom *= 2
+	return regs[0] / (1 << combo(oper, regs))
+}
+
+func fast(a int64) []int64 {
+	var out []int64
+	var b, c int64
+	for {
+		// 2,4
+		b = a % 8
+
+		// 1,7
+		b ^= 7
+
+		// 7,5
+		c = a / (1 << b)
+
+		// 1,7
+		b ^= 7
+
+		// 4,6
+		b ^= c
+
+		// 0,3
+		a /= 8
+
+		// 5,5
+		out = append(out, b%8)
+
+		// 3,0
+		if a == 0 {
+			break
+		}
 	}
-	return regs[0] / denom
+	return out
 }

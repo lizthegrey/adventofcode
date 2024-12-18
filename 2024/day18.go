@@ -42,10 +42,10 @@ func main() {
 	impassable := make(map[coord]bool)
 	for i, loc := range incoming {
 		impassable[loc] = true
-		steps := aStar(impassable, coord{0, 0}, coord{maxCoord, maxCoord})
 		if i < 1024 {
 			continue
 		}
+		steps := aStar(impassable, coord{0, 0}, coord{maxCoord, maxCoord})
 		if i == 1024 {
 			fmt.Println(steps)
 		}
