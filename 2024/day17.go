@@ -47,23 +47,22 @@ func main() {
 	}
 	fmt.Println()
 
-	fmt.Println(*search(ops, regs, 0, 0))
+	fmt.Println(*search(ops, regs, 0, len(ops)-1))
 }
 
 func search(ops []int64, regs [3]int64, seed int64, digit int) *int64 {
-	if digit == len(ops) {
-		ret := seed
-		return &ret
+	if digit == -1 {
+		return &seed
 	}
-	shift := (len(ops) - digit - 1) * 3
+	shift := digit * 3
 	for i := int64(0); i < (1 << 3); i++ {
 		candidate := seed + (i << shift)
 		regs[0] = candidate
 		test := compute(ops, regs)
-		if len(test) != len(ops) || test[len(ops)-digit-1] != ops[len(ops)-digit-1] {
+		if len(test) != len(ops) || test[digit] != ops[digit] {
 			continue
 		}
-		ret := search(ops, regs, candidate, digit+1)
+		ret := search(ops, regs, candidate, digit-1)
 		if ret != nil {
 			return ret
 		}
