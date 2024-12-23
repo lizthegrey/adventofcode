@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
+	"math"
 	"strings"
 
 	"github.com/lizthegrey/adventofcode/2022/heapq"
@@ -61,116 +62,74 @@ func main() {
 			}
 		}
 	}
-	shortest := aStar(passable, start, target)
+	shortest, predecessors := dijkstra(passable, start, target)
 	fmt.Println(shortest)
-	turns := shortest / 1000
-	steps := shortest % 1000
 
-	watch := make(map[coord]bool)
-	// Having constrained the maze, now we can enumerate all paths from start
-	// that reach finish in exactly the number of turns and steps, and not one more or less.
-	path := []state{{start, East}}
-	visited := make(map[coord]bool)
-	memo := make(map[state]augmented)
-	explore(passable, visited, watch, memo, path, target, turns, steps)
-	fmt.Println(len(watch))
+	paths := make(map[state]bool)
+	for _, dir := range [4]dir{North, East, South, West} {
+		backtrace(paths, predecessors, state{target, dir})
+	}
+	viewing := make(map[coord]bool)
+	for k := range paths {
+		viewing[k.coord] = true
+	}
+	fmt.Println(len(viewing))
 }
 
-func explore(passable, visited, watch map[coord]bool, memo map[state]augmented, path []state, target coord, turns, steps int) {
-	current := path[len(path)-1]
-	if current.coord == target {
-		for i, loc := range path {
-			watch[loc.coord] = true
-			if i > 0 {
-				prev := path[i-1].coord
-				next := loc.coord
-				for r := min(prev.r, next.r); r <= max(prev.r, next.r); r++ {
-					watch[coord{r, prev.c}] = true
-				}
-				for c := min(prev.c, next.c); c <= max(prev.c, next.c); c++ {
-					watch[coord{prev.r, c}] = true
-				}
-			}
-		}
-		fmt.Println(len(watch))
+func backtrace(paths map[state]bool, predecessors map[state][]state, cur state) {
+	if paths[cur] {
+		// Already processed.
 		return
 	}
-	visited[current.coord] = true
-	for _, n := range current.iterate(passable) {
-		turnsLeft := turns
-		stepsLeft := steps
-		if n.coord == current.coord {
-			turnsLeft--
-			if turnsLeft < 0 {
-				continue
-			}
-		} else {
-			if zoom, ok := memo[n]; ok {
-				n = zoom.state
-				stepsLeft -= zoom.steps
-			} else {
-				orig := n
-				i := 1
-				for {
-					options := n.iterate(passable)
-					if len(options) != 1 || options[0].facing != n.facing {
-						break
-					}
-					n = options[0]
-					i++
-				}
-				memo[orig] = augmented{n, i}
-				stepsLeft -= i
-			}
-			if stepsLeft < 0 {
-				// todo: also account for stepping directly to end, if we don't have enough steps left to do that it's futile.
-				continue
-			}
-			if visited[n.coord] {
-				continue
-			}
-		}
-		path = append(path, n)
-		explore(passable, visited, watch, memo, path, target, turnsLeft, stepsLeft)
-		path = path[:len(path)-1]
+	paths[cur] = true
+	for _, pre := range predecessors[cur] {
+		backtrace(paths, predecessors, pre)
 	}
-	delete(visited, current.coord)
 }
 
-func aStar(passable map[coord]bool, start, target coord) int {
+func dijkstra(passable map[coord]bool, start, target coord) (int, map[state][]state) {
 	initial := state{start, East}
+	ret := make(map[state][]state)
 
 	gScore := map[state]int{
 		initial: 0,
 	}
 	workList := heapq.New[state]()
-	workList.Upsert(initial, start.heuristic(target))
+	workList.Upsert(initial, 0)
+
+	targetScore := math.MaxInt
 	for workList.Len() != 0 {
 		// Pop the current node off the worklist.
 		current := workList.PopSafe()
+		score := gScore[current]
 
-		if current.coord == target {
-			return gScore[current]
+		// Handle multiple paths to ending condition.
+		if score > targetScore {
+			return targetScore, ret
 		}
+		if current.coord == target {
+			targetScore = score
+			continue
+		}
+
 		for _, n := range current.iterate(passable) {
-			var incr int
+			incr := 1
 			if n.coord == current.coord {
-				incr += 1000
-			} else {
-				incr++
+				incr = 1000
 			}
-			proposedScore := gScore[current] + incr
-			if previousScore, ok := gScore[n]; !ok || proposedScore < previousScore {
+			proposedScore := score + incr
+			if previousScore, ok := gScore[n]; !ok || proposedScore <= previousScore {
+				if !ok || proposedScore < previousScore {
+					workList.Upsert(n, proposedScore)
+					// this is not clear(ret[n]) as that does something different and wrong!
+					ret[n] = ret[n][:0]
+				}
+				ret[n] = append(ret[n], current)
 				gScore[n] = proposedScore
-				workList.Upsert(n, proposedScore+n.heuristic(target))
 			}
 		}
 	}
-	return -1
-}
-
-func (c coord) heuristic(target coord) int {
-	return (target.r - c.r) + (target.c - c.c)
+	return -1, nil
 }
 
 func (s state) iterate(passable map[coord]bool) []state {
