@@ -46,23 +46,6 @@ type transition struct {
 	depth         int
 }
 
-// combo generates all unique permutations of a, accounting for duplicate characters.
-func combo(a []rune, f func([]rune), i int) {
-	if i > len(a) {
-		f(a)
-		return
-	}
-	combo(a, f, i+1)
-	for j := i + 1; j < len(a); j++ {
-		if a[i] == a[j] {
-			continue
-		}
-		a[i], a[j] = a[j], a[i]
-		combo(a, f, i+1)
-		a[i], a[j] = a[j], a[i]
-	}
-}
-
 func (t transition) paths(pad map[rune]coord, hole coord) []string {
 	if t.before == t.after {
 		return []string{"A"}
@@ -82,12 +65,19 @@ func (t transition) paths(pad map[rune]coord, hole coord) []string {
 		cChar = '<'
 	}
 
-	instrs := make([]rune, 0, max(c, -c)+max(r, -r))
-	instrs = append(instrs, slices.Repeat([]rune{cChar}, max(c, -c))...)
-	instrs = append(instrs, slices.Repeat([]rune{rChar}, max(r, -r))...)
+	instrsA := make([]rune, 0, max(c, -c)+max(r, -r) + 1)
+	instrsA = append(instrsA, slices.Repeat([]rune{cChar}, max(c, -c))...)
+	instrsA = append(instrsA, slices.Repeat([]rune{rChar}, max(r, -r))...)
+	instrsA = append(instrsA, 'A')
+
+	instrsB := make([]rune, 0, max(c, -c)+max(r, -r) + 1)
+	instrsB = append(instrsB, slices.Repeat([]rune{rChar}, max(r, -r))...)
+	instrsB = append(instrsB, slices.Repeat([]rune{cChar}, max(c, -c))...)
+	instrsB = append(instrsB, 'A')
 
 	var ret []string
-	combo(instrs, func(in []rune) {
+outer:
+	for _, in := range [2][]rune{instrsA, instrsB} {
 		// check if we pass over a hole.
 		loc := from
 		for _, v := range in {
@@ -102,14 +92,11 @@ func (t transition) paths(pad map[rune]coord, hole coord) []string {
 				loc.c--
 			}
 			if loc == hole {
-				return
+				continue outer
 			}
 		}
-		seq := make([]rune, len(in)+1)
-		copy(seq, in)
-		seq[len(in)] = 'A'
-		ret = append(ret, string(seq))
-	}, 0)
+		ret = append(ret, string(in))
+	}
 	return ret
 }
 
@@ -177,25 +164,18 @@ func main() {
 	for _, s := range split[:len(split)-1] {
 		sequences = append(sequences, s)
 	}
+	fmt.Println(compute(sequences, 2))
+	fmt.Println(compute(sequences, 25))
+}
 
-	var sumA, sumB uint64
+func compute(sequences []string, depth int) uint64 {
+	var sum uint64
 	memo := make(map[transition]uint64)
 	for _, seq := range sequences {
 		n, _ := strconv.Atoi(seq[:len(seq)-1])
-
-		stepsA := movements(memo, seq, 2, true)
-		complexityA := stepsA * uint64(n)
-		sumA += complexityA
+		steps := movements(memo, seq, depth, true)
+		complexity := steps * uint64(n)
+		sum += complexity
 	}
-
-	clear(memo)
-	for _, seq := range sequences {
-		n, _ := strconv.Atoi(seq[:len(seq)-1])
-
-		stepsB := movements(memo, seq, 25, true)
-		complexityB := stepsB * uint64(n)
-		sumB += complexityB
-	}
-	fmt.Println(sumA)
-	fmt.Println(sumB)
+	return sum
 }
