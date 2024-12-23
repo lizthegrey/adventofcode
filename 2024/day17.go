@@ -20,7 +20,7 @@ func main() {
 	contents := string(bytes)
 	split := strings.Split(contents, "\n")
 
-	regs := make([]int64, 3)
+	var regs [3]int64
 	var ops []int64
 	for i, s := range split[:len(split)-1] {
 		switch i {
@@ -38,10 +38,7 @@ func main() {
 		}
 	}
 
-	out := compute(regs, ops)
-	if !slices.Equal(out, fast(regs[0])) {
-		panic("fast algo is wrong")
-	}
+	out := compute(ops, regs)
 	for i, v := range out {
 		if i > 0 {
 			fmt.Printf(",")
@@ -50,41 +47,33 @@ func main() {
 	}
 	fmt.Println()
 
-	i := int64(35184370000000)
-
-	// interesting clusters 35186300000000 35188450000000 35189890000000 35190160000000 35190560000000
-	// [2 4 1 7 7 5 1 7 4 1 3 0 4 0 0 1]
-	// we are looking for:
-	// [2 4 1 7 7 5 1 7 4 6 0 3 5 5 3 0]
-	// at 35193640000000 it looks more interesting
-	// [2 4 1 7 7 5 1 7 4 4 0 1 4 0 0 1]
-	// [2 4 1 7 7 5 1 7 4 5 0 1 4 0 0 1]
-	// 35194710000000 they finally mostly agree!
-	// [2 4 1 7 7 5 1 7 4 6 1 1 4 0 0 1]
-	// no match by 35200000000000
-	for {
-		out = fast(i)
-		if i%10000000 == 0 {
-			if len(ops) > len(out) {
-				fmt.Println("keep going up")
-			}
-			fmt.Println(i)
-		}
-		if slices.Equal(ops[0:9], out[0:9]) {
-			fmt.Println(out)
-			fmt.Println(ops)
-		}
-		if slices.Equal(ops, out) {
-			fmt.Println(i)
-			break
-		}
-		i++
-	}
+	fmt.Println(*search(ops, regs, 0, 0))
 }
 
-func compute(r, o []int64) []int64 {
-	regs := slices.Clone(r)
+func search(ops []int64, regs [3]int64, seed int64, digit int) *int64 {
+	if digit == len(ops) {
+		ret := seed
+		return &ret
+	}
+	shift := (len(ops) - digit - 1) * 3
+	for i := int64(0); i < (1 << 3); i++ {
+		candidate := seed + (i << shift)
+		regs[0] = candidate
+		test := compute(ops, regs)
+		if len(test) != len(ops) || test[len(ops)-digit-1] != ops[len(ops)-digit-1] {
+			continue
+		}
+		ret := search(ops, regs, candidate, digit+1)
+		if ret != nil {
+			return ret
+		}
+	}
+	return nil
+}
+
+func compute(o []int64, r [3]int64) []int64 {
 	ops := slices.Clone(o)
+	regs := r
 	var out []int64
 	for pc := 0; pc >= 0 && pc < len(ops); pc += 2 {
 		oper := ops[pc+1]
@@ -115,7 +104,7 @@ func compute(r, o []int64) []int64 {
 	return out
 }
 
-func combo(oper int64, regs []int64) int64 {
+func combo(oper int64, regs [3]int64) int64 {
 	switch oper {
 	case 0:
 		return 0
@@ -136,39 +125,6 @@ func combo(oper int64, regs []int64) int64 {
 	}
 }
 
-func div(oper int64, regs []int64) int64 {
+func div(oper int64, regs [3]int64) int64 {
 	return regs[0] / (1 << combo(oper, regs))
-}
-
-func fast(a int64) []int64 {
-	var out []int64
-	var b, c int64
-	for {
-		// 2,4
-		b = a % 8
-
-		// 1,7
-		b ^= 7
-
-		// 7,5
-		c = a / (1 << b)
-
-		// 1,7
-		b ^= 7
-
-		// 4,6
-		b ^= c
-
-		// 0,3
-		a /= 8
-
-		// 5,5
-		out = append(out, b%8)
-
-		// 3,0
-		if a == 0 {
-			break
-		}
-	}
-	return out
 }
