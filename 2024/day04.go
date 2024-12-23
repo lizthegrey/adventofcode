@@ -49,8 +49,8 @@ func main() {
 	fmt.Println(sum)
 
 	var count int
-	for r := 0; r <= maxR; r++ {
-		for c := 0; c <= maxC; c++ {
+	for r := range maxR + 1 {
+		for c := range maxC + 1 {
 			if grid[coord{r, c}] != 'A' {
 				continue
 			}
@@ -69,8 +69,8 @@ func main() {
 
 func checkAll(grid map[coord]rune, maxR, maxC int, step coord) int {
 	var count int
-	for r := 0; r <= maxR; r++ {
-		for c := 0; c <= maxC; c++ {
+	for r := range maxR + 1 {
+		for c := range maxC + 1 {
 			if check(grid, coord{r, c}, step) {
 				count++
 			}

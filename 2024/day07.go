@@ -65,7 +65,7 @@ func concat(left, right int64) int64 {
 		shift++
 	}
 	ret := left
-	for i := 0; i < shift; i++ {
+	for range shift {
 		ret *= 10
 	}
 	ret += right

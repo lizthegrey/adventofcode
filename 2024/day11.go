@@ -33,7 +33,7 @@ func (m memo) evolve(v int, gens int) uint64 {
 	}
 	if digits%2 == 0 {
 		cutoff := 1
-		for i := 0; i < digits/2; i++ {
+		for range digits / 2 {
 			cutoff *= 10
 		}
 		left := v / cutoff

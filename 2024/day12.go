@@ -74,7 +74,7 @@ func main() {
 				}
 			}
 			diags := work.diags()
-			for i := 0; i < len(different); i++ {
+			for i := range len(different) {
 				// outer corners
 				if different[i] && different[(i+1)%4] {
 					corners[plot]++

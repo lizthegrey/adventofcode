@@ -60,7 +60,7 @@ func main() {
 	var ul, ur, dl, dr int
 	robotsA := slices.Clone(robots)
 	for _, r := range robotsA {
-		for i := 0; i < 100; i++ {
+		for range 100 {
 			r.tick()
 		}
 		if r.pos.x == maxX/2 || r.pos.y == maxY/2 {
@@ -109,8 +109,8 @@ func main() {
 }
 
 func visualise(positions map[coord]int) {
-	for y := 0; y < maxY; y++ {
-		for x := 0; x < maxX; x++ {
+	for y := range maxY {
+		for x := range maxX {
 			if positions[coord{x, y}] != 0 {
 				fmt.Printf("*")
 			} else {

@@ -65,12 +65,12 @@ func (t transition) paths(pad map[rune]coord, hole coord) []string {
 		cChar = '<'
 	}
 
-	instrsA := make([]rune, 0, max(c, -c)+max(r, -r) + 1)
+	instrsA := make([]rune, 0, max(c, -c)+max(r, -r)+1)
 	instrsA = append(instrsA, slices.Repeat([]rune{cChar}, max(c, -c))...)
 	instrsA = append(instrsA, slices.Repeat([]rune{rChar}, max(r, -r))...)
 	instrsA = append(instrsA, 'A')
 
-	instrsB := make([]rune, 0, max(c, -c)+max(r, -r) + 1)
+	instrsB := make([]rune, 0, max(c, -c)+max(r, -r)+1)
 	instrsB = append(instrsB, slices.Repeat([]rune{rChar}, max(r, -r))...)
 	instrsB = append(instrsB, slices.Repeat([]rune{cChar}, max(c, -c))...)
 	instrsB = append(instrsB, 'A')

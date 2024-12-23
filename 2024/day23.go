@@ -38,7 +38,7 @@ func main() {
 		if a[0] != 't' {
 			continue
 		}
-		for i := 0; i < len(v)-1; i++ {
+		for i := range len(v) - 1 {
 			b := v[i]
 			for j := i + 1; j < len(v); j++ {
 				c := v[j]

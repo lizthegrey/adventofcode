@@ -48,7 +48,7 @@ func process(lines []string, obeyDont bool) int {
 			ops = append(ops, valid{r[0], a * b})
 		}
 		var eIdx, dIdx, oIdx int
-		for i := 0; i < len(s); i++ {
+		for i := range len(s) {
 			if eIdx < len(enables) && enables[eIdx][0] == i {
 				enabled = true
 				eIdx++

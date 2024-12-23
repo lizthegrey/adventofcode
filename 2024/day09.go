@@ -45,7 +45,7 @@ func main() {
 	a := slices.Clone(mem)
 	// ss stands for "search sequence", of course!
 	ss := len(a)
-	for hole := 0; hole < len(a); hole++ {
+	for hole := range len(a) {
 		// Look for a place to store.
 		if fill := a[hole]; fill != empty {
 			continue
@@ -67,8 +67,8 @@ func main() {
 		length := lengths[file]
 		pos := positions[file]
 	search:
-		for i := 0; i < pos; i++ {
-			for offset := 0; offset < length; offset++ {
+		for i := range pos {
+			for offset := range length {
 				if b[i+offset] != empty {
 					continue search
 				}

@@ -32,7 +32,7 @@ func main() {
 	for _, v := range nums {
 		var deltas, prices []int8
 		previous := int8(v % 10)
-		for i := 0; i < 2000; i++ {
+		for range 2000 {
 			v = next(v)
 			price := int8(v % 10)
 			prices = append(prices, price)
@@ -43,7 +43,7 @@ func main() {
 		sum += v
 
 		candidates := make(map[deltaKey]int)
-		for j := 0; j < len(deltas)-4; j++ {
+		for j := range len(deltas) - 4 {
 			key := deltaKey{deltas[j], deltas[j+1], deltas[j+2], deltas[j+3]}
 			if _, ok := candidates[key]; ok {
 				continue
