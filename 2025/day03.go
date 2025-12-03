@@ -5,13 +5,12 @@ import (
 	"fmt"
 	"io/ioutil"
 	"strings"
-	"unsafe"
 )
 
 var inputFile = flag.String("inputFile", "inputs/day03.input", "Relative file path to use as input.")
 
 type Pair struct {
-	arr       *int
+	tailLen   int
 	remaining int
 }
 type Memo map[Pair]uint64
@@ -43,7 +42,7 @@ func (m Memo) max(arr []int, remaining int) uint64 {
 	if remaining == 0 {
 		return 0
 	}
-	key := Pair{unsafe.SliceData(arr), remaining}
+	key := Pair{len(arr), remaining}
 	if v, ok := m[key]; ok {
 		return v
 	}
