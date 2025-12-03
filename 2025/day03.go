@@ -53,8 +53,20 @@ func (m Memo) max(arr []int, remaining int) uint64 {
 	for _ = range remaining - 1 {
 		place *= 10
 	}
+	var bestDigit int
 	for pos, v := range arr {
 		if len(arr)-pos < remaining {
+			break
+		}
+		if v > bestDigit {
+			bestDigit = v
+		}
+	}
+	for pos, v := range arr {
+		if len(arr)-pos < remaining {
+			break
+		}
+		if v != bestDigit {
 			continue
 		}
 		if candidate := place*uint64(v) + m.max(arr[pos+1:], remaining-1); candidate > highest {
