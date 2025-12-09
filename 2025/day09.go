@@ -14,7 +14,7 @@ type Coord struct {
 	X, Y int
 }
 
-func (c Coord) Rect(o Coord) int {
+func (c Coord) Area(o Coord) int {
 	return (max(o.X-c.X, c.X-o.X) + 1) * (max(o.Y-c.Y, c.Y-o.Y) + 1)
 }
 
@@ -68,11 +68,11 @@ func main() {
 			if i <= j {
 				continue
 			}
-			size := a.Rect(b)
-			if size > highestA {
-				highestA = size
+			area := a.Area(b)
+			if area > highestA {
+				highestA = area
 			}
-			if size <= highestB {
+			if area <= highestB {
 				continue
 			}
 			for k, c := range tiles {
@@ -106,7 +106,7 @@ func main() {
 					}
 				}
 			}
-			highestB = size
+			highestB = area
 		}
 	}
 	fmt.Println(highestA)
