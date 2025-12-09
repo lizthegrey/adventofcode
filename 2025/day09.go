@@ -87,9 +87,6 @@ func main() {
 			}
 			// Walk along the perimeter of any final candidates, looking for crossings that cut into our area.
 			for r, x := range [2]int{min(a.X, b.X), max(a.X, b.X)} {
-				if a.Y == b.Y {
-					continue
-				}
 				for y := min(a.Y, b.Y) + 1; y <= max(a.Y, b.Y)-1; y++ {
 					if outline[Coord{x + 1 - 2*r, y}] {
 						continue outer
@@ -97,9 +94,6 @@ func main() {
 				}
 			}
 			for s, y := range [2]int{min(a.Y, b.Y), max(a.Y, b.Y)} {
-				if a.X == b.X {
-					continue
-				}
 				for x := min(a.X, b.X) + 1; x <= max(a.X, b.X)-1; x++ {
 					if outline[Coord{x, y + 1 - 2*s}] {
 						continue outer
