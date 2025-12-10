@@ -6,6 +6,8 @@ import (
 	"io/ioutil"
 	"strconv"
 	"strings"
+
+	"github.com/lizthegrey/adventofcode/2022/heapq"
 )
 
 var inputFile = flag.String("inputFile", "inputs/day10.input", "Relative file path to use as input.")
@@ -15,13 +17,15 @@ type Model struct {
 	Target   uint64
 	Len      int
 	Buttons  []uint64
-	Joltages []int
+	Joltages []uint8
 }
 
 type SequenceA struct {
 	Cost     int
 	Switches uint64
 }
+
+type State [10]uint8
 
 func (m Model) SolveA() int {
 	queue := []SequenceA{{0, 0}}
@@ -46,88 +50,54 @@ func (m Model) SolveA() int {
 	return -1
 }
 
-type SequenceB struct {
-	Cost    int
-	Presses [10]int
+func (m Model) heuristic(pos State) int {
+	// It will take at least max(deltas) presses to get to destination, and
+	// possibly more.
+	var ret uint8
+	for i := range m.Joltages {
+		diff := m.Joltages[i] - pos[i]
+		if diff > ret {
+			ret = diff
+		}
+	}
+	return int(ret)
 }
 
 func (m Model) SolveB() int {
-	var empty [10]int
-	queue := []SequenceB{{0, empty}}
-	shortest := make(map[[10]int]int)
-
-	var final [10]int
+	var start, target State
 	for i, v := range m.Joltages {
-		final[i] = v
+		target[i] = v
 	}
-
-	// Perform BFS
-outer:
-	for len(queue) > 0 {
-		item := queue[0]
-		queue = queue[1:]
-
-		if sh, ok := shortest[final]; ok && item.Cost >= sh {
-			continue
+	gScore := map[State]uint16{
+		start: 0,
+	}
+	workList := heapq.New[State]()
+	workList.Upsert(start, m.heuristic(target))
+	for workList.Len() != 0 {
+		// Pop the current node off the worklist.
+		current := workList.PopSafe()
+		if current == target {
+			return int(gScore[current])
 		}
-
-		finished := true
-		for i := range m.Joltages {
-			if item.Presses[i] > m.Joltages[i] {
-				// Invalid, we exceeded the press count.
-				continue outer
-			}
-			if m.Joltages[i] > item.Presses[i] {
-				finished = false
-			}
-		}
-		if finished {
-			// Can't argue with perfection.
-			continue
-		}
-
+	outer:
 		for _, v := range m.Buttons {
-			// multiple
-			times := -1
+			n := current
 			for i := range len(m.Joltages) {
-				remaining := m.Joltages[i] - item.Presses[i]
 				if v&(1<<i) > 0 {
-					if times == -1 || remaining < times {
-						times = remaining
+					n[i]++
+					if n[i] > m.Joltages[i] {
+						continue outer
 					}
 				}
 			}
-			if times > 1 {
-				var multiple SequenceB
-				multiple.Presses = item.Presses
-				for i := range len(m.Joltages) {
-					if v&(1<<i) > 0 {
-						multiple.Presses[i] += times
-					}
-				}
-				multiple.Cost = item.Cost + times
-				if lowestCost, ok := shortest[multiple.Presses]; !ok || multiple.Cost < lowestCost {
-					shortest[multiple.Presses] = multiple.Cost
-					queue = append(queue, multiple)
-				}
-			}
-
-			// single
-			var single SequenceB
-			single.Presses = item.Presses
-			for i := range len(m.Joltages) {
-				if v&(1<<i) > 0 {
-					single.Presses[i]++
-				}
-			}
-			single.Cost = item.Cost + 1
-			if lowestCost, ok := shortest[single.Presses]; !ok || single.Cost < lowestCost {
-				shortest[single.Presses] = single.Cost
-				queue = append(queue, single)
+			proposedScore := gScore[current] + 1
+			if previousScore, ok := gScore[n]; !ok || proposedScore < previousScore {
+				gScore[n] = proposedScore
+				workList.Upsert(n, int(proposedScore)+m.heuristic(target))
 			}
 		}
 	}
-	return shortest[final]
+	return -1
 }
 
 func main() {
@@ -161,7 +131,10 @@ func main() {
 		joltages := parts[len(parts)-1]
 		for _, joltage := range strings.Split(joltages[1:len(joltages)-1], ",") {
 			j, _ := strconv.Atoi(joltage)
-			m.Joltages = append(m.Joltages, j)
+			if j > 255 {
+				panic("joltage too high")
+			}
+			m.Joltages = append(m.Joltages, uint8(j))
 		}
 		countA += m.SolveA()
 		countB += m.SolveB()
