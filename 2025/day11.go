@@ -9,37 +9,6 @@ import (
 
 var inputFile = flag.String("inputFile", "inputs/day11.input", "Relative file path to use as input.")
 
-// for some reason coincidentally there are 576 different devices, which is 64*9.
-// this cannot possibly be a coincidence.
-type CacheKey [9]uint64
-
-func (c CacheKey) Used(d Device) bool {
-	for i := range c {
-		if d.Key[i]&c[i] > 0 {
-			return true
-		}
-	}
-	return false
-}
-
-func (c CacheKey) MarkUsed(d Device) CacheKey {
-	for i := range c {
-		c[i] |= d.Key[i]
-	}
-	return c
-}
-
-type Device struct {
-	Name  string
-	Conns []string
-	Key   CacheKey
-}
-
-type State struct {
-	Visited CacheKey
-	Cur     string
-}
-
 func main() {
 	flag.Parse()
 	bytes, err := ioutil.ReadFile(*inputFile)
@@ -49,44 +18,39 @@ func main() {
 	contents := string(bytes)
 	split := strings.Split(contents, "\n")
 
-	devices := make(map[string]Device)
-	for i, s := range split[:len(split)-1] {
+	devices := make(map[string][]string)
+	for _, s := range split[:len(split)-1] {
 		parts := strings.Split(s, ": ")
-
-		var d Device
-		d.Name = parts[0]
+		var conns []string
 		for _, v := range strings.Split(parts[1], " ") {
-			d.Conns = append(d.Conns, v)
+			conns = append(conns, v)
 		}
-		d.Key[i/64] = 1 << (i % 64)
-		devices[d.Name] = d
+		devices[parts[0]] = conns
 	}
-	memo := make(map[State]uint64)
-	fmt.Println(compute(devices, memo, State{devices["you"].Key, "you"}, "out"))
-	clear(memo)
-	fmt.Println(compute(devices, memo, State{devices["svr"].Key, "svr"}, "out"))
+	partA := compute(devices, nil, "you", "out")
+	fmt.Println(partA)
+	partB := compute(devices, nil, "svr", "dac") *
+		compute(devices, nil, "dac", "fft") *
+		compute(devices, nil, "fft", "out")
+	partB += compute(devices, nil, "svr", "fft") *
+		compute(devices, nil, "fft", "dac") *
+		compute(devices, nil, "dac", "out")
+	fmt.Println(partB)
 }
 
-func compute(devices map[string]Device, memo map[State]uint64, state State, fin string) uint64 {
+func compute(devices map[string][]string, memo map[string]uint64, state, fin string) uint64 {
+	if memo == nil {
+		memo = make(map[string]uint64)
+	}
 	var ret uint64
-	if state.Cur == fin {
-		// Mark invalid entries bad
-		if state.Visited.Used(devices["svr"]) && !(state.Visited.Used(devices["fft"]) && state.Visited.Used(devices["dac"])) {
-			return 0
-		}
+	if state == fin {
 		return 1
 	}
 	if ret, ok := memo[state]; ok {
 		return ret
 	}
-	for _, v := range devices[state.Cur].Conns {
-		if state.Visited.Used(devices[v]) {
-			continue
-		}
-		next := state
-		next.Cur = v
-		next.Visited = next.Visited.MarkUsed(devices[v])
-		ret += compute(devices, memo, next, fin)
+	for _, v := range devices[state] {
+		ret += compute(devices, memo, v, fin)
 	}
 
 	memo[state] = ret
