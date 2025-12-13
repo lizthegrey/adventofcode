@@ -20,29 +20,21 @@ type Model struct {
 	Joltages []int
 }
 
-type SequenceA struct {
-	Cost     int
-	Switches uint64
-}
-
-type State [10]uint8
-
 func (m Model) SolveA() int {
-	queue := []SequenceA{{0, 0}}
+	queue := []uint64{0}
 	shortest := make(map[uint64]int)
 	// Perform BFS
 	for len(queue) > 0 {
 		item := queue[0]
 		queue = queue[1:]
-		if m.Target == item.Switches {
-			return item.Cost
+		cost := shortest[item]
+		if item == m.Target {
+			return cost
 		}
 		for _, v := range m.Buttons {
-			var next SequenceA
-			next.Switches = item.Switches ^ v
-			next.Cost = item.Cost + 1
-			if lowestCost, ok := shortest[next.Switches]; !ok || next.Cost < lowestCost {
-				shortest[next.Switches] = next.Cost
+			next := item ^ v
+			if _, ok := shortest[next]; !ok {
+				shortest[next] = cost + 1
 				queue = append(queue, next)
 			}
 		}
@@ -84,12 +76,13 @@ func main() {
 			}
 			m.Buttons = append(m.Buttons, button)
 		}
+		countA += m.SolveA()
+
 		joltages := parts[len(parts)-1]
 		for _, joltage := range strings.Split(joltages[1:len(joltages)-1], ",") {
 			j, _ := strconv.Atoi(joltage)
 			m.Joltages = append(m.Joltages, j)
 		}
-		countA += m.SolveA()
 
 		fmt.Fprintf(b, "First[Minimize[{")
 		for i := range m.Buttons {
@@ -145,7 +138,7 @@ func main() {
 			}
 			fmt.Fprintf(b, "Subscript[a,%d]", i)
 		}
-		fmt.Fprintf(b, "},Integers]]]")
+		fmt.Fprintf(b, "}, Integers]]]")
 	}
 	fmt.Fprintf(b, "]")
 
