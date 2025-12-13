@@ -4,6 +4,8 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
+	"os"
+	"os/exec"
 	"strconv"
 	"strings"
 )
@@ -58,7 +60,13 @@ func main() {
 	split := strings.Split(contents, "\n")
 
 	var countA int
-	for _, s := range split[:len(split)-1] {
+	var b strings.Builder
+	fmt.Fprintf(&b, "Print[")
+
+	for n, s := range split[:len(split)-1] {
+		if n != 0 {
+			fmt.Fprintf(&b, " + ")
+		}
 		parts := strings.Split(s, " ")
 		var m Model
 		m.Len = len(parts[0]) - 2
@@ -81,39 +89,71 @@ func main() {
 			m.Joltages = append(m.Joltages, j)
 		}
 		countA += m.SolveA()
-		fmt.Printf("{{")
+
+		fmt.Fprintf(&b, "First[Minimize[{")
 		for i := range m.Buttons {
 			if i != 0 {
-				fmt.Printf(",")
+				fmt.Fprintf(&b, " + ")
 			}
-			fmt.Printf("a_%d", i)
+			fmt.Fprintf(&b, "Subscript[a,%d]", i)
 		}
-		fmt.Printf("}} * {")
+		fmt.Fprintf(&b, ", ")
+		fmt.Fprintf(&b, "{{")
+		for i := range m.Buttons {
+			if i != 0 {
+				fmt.Fprintf(&b, ", ")
+			}
+			fmt.Fprintf(&b, "Subscript[a,%d]", i)
+		}
+		fmt.Fprintf(&b, "}} . {")
 		for i, v := range m.Buttons {
 			if i != 0 {
-				fmt.Printf(",")
+				fmt.Fprintf(&b, ",")
 			}
-			fmt.Printf("{")
+			fmt.Fprintf(&b, "{")
 			for j := 0; j < len(m.Joltages); j++ {
 				if j != 0 {
-					fmt.Printf(",")
+					fmt.Fprintf(&b, ",")
 				}
-				if v & (1 << j) > 0 {
-					fmt.Printf("1")
+				if v&(1<<j) > 0 {
+					fmt.Fprintf(&b, "1")
 				} else {
-					fmt.Printf("0")
+					fmt.Fprintf(&b, "0")
 				}
 			}
-			fmt.Printf("}")
+			fmt.Fprintf(&b, "}")
 		}
-		fmt.Printf("} == {{")
+		fmt.Fprintf(&b, "} == {{")
 		for i, j := range m.Joltages {
 			if i != 0 {
-				fmt.Printf(",")
+				fmt.Fprintf(&b, ",")
 			}
-			fmt.Printf("%d", j)
+			fmt.Fprintf(&b, "%d", j)
 		}
-		fmt.Printf("}}\n")
+		fmt.Fprintf(&b, "}}, ")
+		for i := range m.Buttons {
+			if i != 0 {
+				fmt.Fprintf(&b, ",")
+			}
+			fmt.Fprintf(&b, "Subscript[a,%d] >= 0", i)
+		}
+		fmt.Fprintf(&b, "}, Element[{")
+		for i := range m.Buttons {
+			if i != 0 {
+				fmt.Fprintf(&b, ",")
+			}
+			fmt.Fprintf(&b, "Subscript[a,%d]", i)
+		}
+		fmt.Fprintf(&b, "},Integers]]]")
 	}
+	fmt.Fprintf(&b, "]")
+
 	fmt.Println(countA)
+
+	f, _ := os.CreateTemp("", "compute")
+	defer os.Remove(f.Name())
+	f.Write([]byte(b.String()))
+	cmd := exec.Command("/usr/bin/wolframscript", "-file", f.Name())
+	out, _ := cmd.Output()
+	fmt.Printf("%s", out)
 }
