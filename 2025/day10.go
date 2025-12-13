@@ -6,8 +6,6 @@ import (
 	"io/ioutil"
 	"strconv"
 	"strings"
-
-	"github.com/lizthegrey/adventofcode/2022/heapq"
 )
 
 var inputFile = flag.String("inputFile", "inputs/day10.input", "Relative file path to use as input.")
@@ -17,7 +15,7 @@ type Model struct {
 	Target   uint64
 	Len      int
 	Buttons  []uint64
-	Joltages []uint8
+	Joltages []int
 }
 
 type SequenceA struct {
@@ -50,56 +48,6 @@ func (m Model) SolveA() int {
 	return -1
 }
 
-func (m Model) heuristic(pos State) int {
-	// It will take at least max(deltas) presses to get to destination, and
-	// possibly more.
-	var ret uint8
-	for i := range m.Joltages {
-		diff := m.Joltages[i] - pos[i]
-		if diff > ret {
-			ret = diff
-		}
-	}
-	return int(ret)
-}
-
-func (m Model) SolveB() int {
-	var start, target State
-	for i, v := range m.Joltages {
-		target[i] = v
-	}
-	gScore := map[State]uint16{
-		start: 0,
-	}
-	workList := heapq.New[State]()
-	workList.Upsert(start, m.heuristic(target))
-	for workList.Len() != 0 {
-		// Pop the current node off the worklist.
-		current := workList.PopSafe()
-		if current == target {
-			return int(gScore[current])
-		}
-	outer:
-		for _, v := range m.Buttons {
-			n := current
-			for i := range len(m.Joltages) {
-				if v&(1<<i) > 0 {
-					n[i]++
-					if n[i] > m.Joltages[i] {
-						continue outer
-					}
-				}
-			}
-			proposedScore := gScore[current] + 1
-			if previousScore, ok := gScore[n]; !ok || proposedScore < previousScore {
-				gScore[n] = proposedScore
-				workList.Upsert(n, int(proposedScore)+m.heuristic(target))
-			}
-		}
-	}
-	return -1
-}
-
 func main() {
 	flag.Parse()
 	bytes, err := ioutil.ReadFile(*inputFile)
@@ -109,9 +57,8 @@ func main() {
 	contents := string(bytes)
 	split := strings.Split(contents, "\n")
 
-	var countA, countB int
+	var countA int
 	for _, s := range split[:len(split)-1] {
-		fmt.Println(s)
 		parts := strings.Split(s, " ")
 		var m Model
 		m.Len = len(parts[0]) - 2
@@ -131,14 +78,42 @@ func main() {
 		joltages := parts[len(parts)-1]
 		for _, joltage := range strings.Split(joltages[1:len(joltages)-1], ",") {
 			j, _ := strconv.Atoi(joltage)
-			if j > 255 {
-				panic("joltage too high")
-			}
-			m.Joltages = append(m.Joltages, uint8(j))
+			m.Joltages = append(m.Joltages, j)
 		}
 		countA += m.SolveA()
-		countB += m.SolveB()
+		fmt.Printf("{{")
+		for i := range m.Buttons {
+			if i != 0 {
+				fmt.Printf(",")
+			}
+			fmt.Printf("a_%d", i)
+		}
+		fmt.Printf("}} * {")
+		for i, v := range m.Buttons {
+			if i != 0 {
+				fmt.Printf(",")
+			}
+			fmt.Printf("{")
+			for j := 0; j < len(m.Joltages); j++ {
+				if j != 0 {
+					fmt.Printf(",")
+				}
+				if v & (1 << j) > 0 {
+					fmt.Printf("1")
+				} else {
+					fmt.Printf("0")
+				}
+			}
+			fmt.Printf("}")
+		}
+		fmt.Printf("} == {{")
+		for i, j := range m.Joltages {
+			if i != 0 {
+				fmt.Printf(",")
+			}
+			fmt.Printf("%d", j)
+		}
+		fmt.Printf("}}\n")
 	}
 	fmt.Println(countA)
-	fmt.Println(countB)
 }
